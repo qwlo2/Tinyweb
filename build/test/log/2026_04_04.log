@@ -1,0 +1,5 @@
+2026-04-04 14:45:06.819193 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-04 14:45:06.820595 [info] : Server port:1316
+2026-04-04 14:45:06.820749 [info] : ========== Server init ==========
+2026-04-04 14:45:44.037842 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-04 14:45:44.037911 [info] : Epoll add error!

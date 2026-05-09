@@ -1,0 +1,225 @@
+2026-04-05 21:18:26.551162 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:18:26.551243 [info] : Epoll add error!
+2026-04-05 21:18:26.551325 [info] : ========== Server init error!==========
+2026-04-05 21:18:28.351228 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:18:28.351297 [info] : Server port:1316
+2026-04-05 21:18:28.351355 [info] : ========== Server init ==========
+2026-04-05 21:18:28.351359 [info] : Port:1316, OpenLinger: false
+2026-04-05 21:18:28.351422 [info] : Listen Mode: ET, OpenConn Mode: ET
+2026-04-05 21:18:28.351616 [info] : LogSys level: 1
+2026-04-05 21:18:28.351665 [info] : srcDir: /home/qiu/Tinyweberever/resources
+2026-04-05 21:18:28.351680 [info] : SqlConnPool num: 12, ThreadPool num: 6
+2026-04-05 21:18:28.351684 [info] : ========== Server start ==========
+2026-04-05 21:18:31.507416 [info] : Client[18](192.168.1.6:15313) in,usercout:1
+2026-04-05 21:18:31.507514 [info] : Client[18] in
+2026-04-05 21:18:31.525885 [info] : RequestLine error
+2026-04-05 21:18:49.900330 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:18:49.900425 [info] : Epoll add error!
+2026-04-05 21:18:49.900445 [info] : ========== Server init error!==========
+2026-04-05 21:19:00.046425 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:19:00.046492 [info] : Epoll add error!
+2026-04-05 21:19:00.046563 [info] : ========== Server init error!==========
+2026-04-05 21:19:01.714796 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:19:01.714867 [info] : Server port:1316
+2026-04-05 21:19:01.714871 [info] : ========== Server init ==========
+2026-04-05 21:19:01.714872 [info] : Port:1316, OpenLinger: false
+2026-04-05 21:19:01.714874 [info] : Listen Mode: ET, OpenConn Mode: ET
+2026-04-05 21:19:01.714876 [info] : LogSys level: 1
+2026-04-05 21:19:01.714877 [info] : srcDir: /home/qiu/Tinyweberever/resources
+2026-04-05 21:19:01.714879 [info] : SqlConnPool num: 12, ThreadPool num: 6
+2026-04-05 21:19:01.714881 [info] : ========== Server start ==========
+2026-04-05 21:19:05.742179 [info] : Client[18](127.0.0.1:1228) in,usercout:1
+2026-04-05 21:19:37.938201 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:19:37.938283 [info] : Server port:1316
+2026-04-05 21:19:37.938317 [info] : ========== Server init ==========
+2026-04-05 21:19:37.938321 [info] : Port:1316, OpenLinger: false
+2026-04-05 21:19:37.938323 [info] : Listen Mode: ET, OpenConn Mode: ET
+2026-04-05 21:19:37.938515 [info] : LogSys level: 1
+2026-04-05 21:19:37.938588 [info] : srcDir: /home/qiu/Tinyweberever/resources
+2026-04-05 21:19:37.938607 [info] : SqlConnPool num: 12, ThreadPool num: 6
+2026-04-05 21:19:37.938613 [info] : ========== Server start ==========
+2026-04-05 21:19:41.928147 [info] : Client[18](127.0.0.1:65221) in,usercout:1
+2026-04-05 21:19:41.928268 [info] : Client[18] in
+2026-04-05 21:20:43.935614 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:20:43.935693 [info] : Epoll add error!
+2026-04-05 21:20:43.935710 [info] : ========== Server init error!==========
+2026-04-05 21:20:49.917325 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:20:49.917426 [info] : Server port:1316
+2026-04-05 21:20:49.917509 [info] : ========== Server init ==========
+2026-04-05 21:20:49.917514 [info] : Port:1316, OpenLinger: false
+2026-04-05 21:20:49.917517 [info] : Listen Mode: ET, OpenConn Mode: ET
+2026-04-05 21:20:49.917596 [info] : LogSys level: 1
+2026-04-05 21:20:49.917602 [info] : srcDir: /home/qiu/Tinyweberever/resources
+2026-04-05 21:20:49.917605 [info] : SqlConnPool num: 12, ThreadPool num: 6
+2026-04-05 21:20:49.917608 [info] : ========== Server start ==========
+2026-04-05 21:20:58.612010 [info] : Client[18](127.0.0.1:39092) in,usercout:1
+2026-04-05 21:20:58.612121 [info] : Client[18] in
+2026-04-05 21:20:58.613707 [info] : Client[18] quit!
+2026-04-05 21:20:58.613803 [info] : Client[18](127.0.0.1:39092) quit, UserCount:0
+2026-04-05 21:21:14.788218 [info] : Client[18](127.0.0.1:39128) in,usercout:1
+2026-04-05 21:21:14.788403 [info] : Client[18] in
+2026-04-05 21:21:14.819178 [info] : Client[19](127.0.0.1:41688) in,usercout:2
+2026-04-05 21:21:14.819273 [info] : Client[19] in
+2026-04-05 21:21:14.819296 [info] : Client[20](127.0.0.1:44760) in,usercout:3
+2026-04-05 21:21:14.819302 [info] : Client[20] in
+2026-04-05 21:21:14.819587 [info] : Client[21](127.0.0.1:46296) in,usercout:4
+2026-04-05 21:21:14.819621 [info] : Client[21] in
+2026-04-05 21:21:14.825141 [info] : Client[22](127.0.0.1:50392) in,usercout:5
+2026-04-05 21:21:14.825216 [info] : Client[22] in
+2026-04-05 21:21:14.825245 [info] : Client[23](127.0.0.1:51416) in,usercout:6
+2026-04-05 21:21:14.825251 [info] : Client[23] in
+2026-04-05 21:21:28.598586 [info] : RequestLine error
+2026-04-05 21:21:28.599002 [info] : Client[19] quit!
+2026-04-05 21:21:28.599059 [info] : Client[19](127.0.0.1:41688) quit, UserCount:5
+2026-04-05 21:21:28.660726 [info] : Client[19](127.0.0.1:4327) in,usercout:6
+2026-04-05 21:21:28.660769 [info] : Client[19] in
+2026-04-05 21:22:17.862024 [info] : RequestLine error
+2026-04-05 21:22:17.862460 [info] : Client[18] quit!
+2026-04-05 21:22:17.862502 [info] : Client[18](127.0.0.1:39128) quit, UserCount:5
+2026-04-05 21:22:17.901631 [info] : Client[18](127.0.0.1:18587) in,usercout:6
+2026-04-05 21:22:17.901685 [info] : Client[18] in
+2026-04-05 21:22:17.903096 [info] : Client[25](127.0.0.1:21659) in,usercout:7
+2026-04-05 21:22:17.903132 [info] : Client[25] in
+2026-04-05 21:22:33.759678 [info] : Client[19] quit!
+2026-04-05 21:22:33.759791 [info] : Client[19](127.0.0.1:4327) quit, UserCount:6
+2026-04-05 21:22:41.270857 [info] : Client[19](192.168.1.6:57794) in,usercout:7
+2026-04-05 21:22:41.270979 [info] : Client[19] in
+2026-04-05 21:22:41.283009 [info] : Client[24](192.168.1.6:51952) in,usercout:8
+2026-04-05 21:22:41.283122 [info] : Client[24] in
+2026-04-05 21:22:41.287244 [info] : Client[26](192.168.1.6:63979) in,usercout:9
+2026-04-05 21:22:41.287394 [info] : Client[26] in
+2026-04-05 21:22:41.294676 [info] : RequestLine error
+2026-04-05 21:22:41.294692 [info] : RequestLine error
+2026-04-05 21:22:41.295626 [info] : Client[24] quit!
+2026-04-05 21:22:41.295683 [info] : Client[24](192.168.1.6:51952) quit, UserCount:8
+2026-04-05 21:22:41.295951 [info] : Client[19] quit!
+2026-04-05 21:22:41.296270 [info] : Client[19](192.168.1.6:57794) quit, UserCount:7
+2026-04-05 21:22:41.296428 [info] : Client[19](192.168.1.6:32495) in,usercout:8
+2026-04-05 21:22:41.296477 [info] : Client[19] in
+2026-04-05 21:22:41.296487 [info] : Client[24](192.168.1.6:706) in,usercout:9
+2026-04-05 21:22:41.296491 [info] : Client[24] in
+2026-04-05 21:22:41.310186 [info] : RequestLine error
+2026-04-05 21:22:41.310162 [info] : RequestLine error
+2026-04-05 21:22:41.311122 [info] : Client[19] quit!
+2026-04-05 21:22:41.311217 [info] : Client[19](192.168.1.6:32495) quit, UserCount:8
+2026-04-05 21:22:41.311803 [info] : Client[24] quit!
+2026-04-05 21:22:41.311869 [info] : Client[24](192.168.1.6:706) quit, UserCount:7
+2026-04-05 21:23:17.935409 [info] : Client[25] quit!
+2026-04-05 21:23:17.935514 [info] : Client[25](127.0.0.1:21659) quit, UserCount:6
+2026-04-05 21:23:17.935567 [info] : Client[20] quit!
+2026-04-05 21:23:17.935580 [info] : Client[20](127.0.0.1:44760) quit, UserCount:5
+2026-04-05 21:23:17.935675 [info] : Client[21] quit!
+2026-04-05 21:23:17.935720 [info] : Client[21](127.0.0.1:46296) quit, UserCount:4
+2026-04-05 21:23:17.935752 [info] : Client[22] quit!
+2026-04-05 21:23:17.935777 [info] : Client[22](127.0.0.1:50392) quit, UserCount:3
+2026-04-05 21:23:17.935801 [info] : Client[23] quit!
+2026-04-05 21:23:17.935806 [info] : Client[23](127.0.0.1:51416) quit, UserCount:2
+2026-04-05 21:23:17.935826 [info] : Client[18] quit!
+2026-04-05 21:23:17.935831 [info] : Client[18](127.0.0.1:18587) quit, UserCount:1
+2026-04-05 21:23:41.291414 [info] : Client[26] quit!
+2026-04-05 21:23:41.291786 [info] : Client[26](192.168.1.6:63979) quit, UserCount:0
+2026-04-05 21:24:34.022296 [info] : Client[18](127.0.0.1:50409) in,usercout:1
+2026-04-05 21:24:34.022574 [info] : Client[18] in
+2026-04-05 21:24:34.025207 [info] : RequestLine error
+2026-04-05 21:24:34.025405 [info] : Client[18] quit!
+2026-04-05 21:24:34.025431 [info] : Client[18](127.0.0.1:50409) quit, UserCount:0
+2026-04-05 21:24:34.045749 [info] : Client[18](127.0.0.1:50921) in,usercout:1
+2026-04-05 21:24:34.045857 [info] : Client[18] in
+2026-04-05 21:24:34.046607 [info] : Client[19](127.0.0.1:52457) in,usercout:2
+2026-04-05 21:24:34.046686 [info] : Client[19] in
+2026-04-05 21:24:34.047064 [info] : Client[20](127.0.0.1:52969) in,usercout:3
+2026-04-05 21:24:34.047223 [info] : Client[20] in
+2026-04-05 21:24:34.047454 [info] : Client[21](127.0.0.1:53993) in,usercout:4
+2026-04-05 21:24:34.047491 [info] : Client[21] in
+2026-04-05 21:24:34.048215 [info] : Client[22](127.0.0.1:57065) in,usercout:5
+2026-04-05 21:24:34.048280 [info] : Client[22] in
+2026-04-05 21:24:34.051174 [info] : Client[23](127.0.0.1:59113) in,usercout:6
+2026-04-05 21:24:34.051250 [info] : Client[23] in
+2026-04-05 21:25:34.061151 [info] : Client[18] quit!
+2026-04-05 21:25:34.061254 [info] : Client[18](127.0.0.1:50921) quit, UserCount:5
+2026-04-05 21:25:34.061337 [info] : Client[19] quit!
+2026-04-05 21:25:34.061355 [info] : Client[19](127.0.0.1:52457) quit, UserCount:4
+2026-04-05 21:25:34.061393 [info] : Client[22] quit!
+2026-04-05 21:25:34.061403 [info] : Client[22](127.0.0.1:57065) quit, UserCount:3
+2026-04-05 21:25:34.061434 [info] : Client[21] quit!
+2026-04-05 21:25:34.061438 [info] : Client[21](127.0.0.1:53993) quit, UserCount:2
+2026-04-05 21:25:34.061549 [info] : Client[20] quit!
+2026-04-05 21:25:34.061598 [info] : Client[20](127.0.0.1:52969) quit, UserCount:1
+2026-04-05 21:25:39.090015 [info] : Client[23] quit!
+2026-04-05 21:40:46.165012 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:40:46.165080 [info] : Epoll add error!
+2026-04-05 21:40:46.165092 [info] : ========== Server init error!==========
+2026-04-05 21:40:47.765989 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:40:47.766053 [info] : Server port:1316
+2026-04-05 21:40:47.766069 [info] : ========== Server init ==========
+2026-04-05 21:40:47.766070 [info] : Port:1316, OpenLinger: false
+2026-04-05 21:40:47.766072 [info] : Listen Mode: ET, OpenConn Mode: ET
+2026-04-05 21:40:47.766073 [info] : LogSys level: 1
+2026-04-05 21:40:47.766075 [info] : srcDir: /home/qiu/Tinyweberever/resources
+2026-04-05 21:40:47.766077 [info] : SqlConnPool num: 12, ThreadPool num: 6
+2026-04-05 21:40:47.766078 [info] : ========== Server start ==========
+2026-04-05 21:40:53.345937 [info] : Client[18](127.0.0.1:36545) in,usercout:1
+2026-04-05 21:40:53.345998 [info] : Client[18] in
+2026-04-05 21:40:56.080496 [info] : RequestLine error
+2026-04-05 21:41:32.540648 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:41:32.540707 [info] : Epoll add error!
+2026-04-05 21:41:32.540778 [info] : ========== Server init error!==========
+2026-04-05 21:41:34.408919 [info] : Connecting MySQL: host=192.168.1.6, port=3306, user=root, db=tinywebserver
+2026-04-05 21:41:34.409003 [info] : Server port:1316
+2026-04-05 21:41:34.409007 [info] : ========== Server init ==========
+2026-04-05 21:41:34.409009 [info] : Port:1316, OpenLinger: false
+2026-04-05 21:41:34.409011 [info] : Listen Mode: ET, OpenConn Mode: ET
+2026-04-05 21:41:34.409012 [info] : LogSys level: 1
+2026-04-05 21:41:34.409014 [info] : srcDir: /home/qiu/Tinyweberever/resources
+2026-04-05 21:41:34.409016 [info] : SqlConnPool num: 12, ThreadPool num: 6
+2026-04-05 21:41:34.409017 [info] : ========== Server start ==========
+2026-04-05 21:41:35.200980 [info] : Client[18](127.0.0.1:51399) in,usercout:1
+2026-04-05 21:41:35.201057 [info] : Client[18] in
+2026-04-05 21:41:37.455096 [info] : Client[19](127.0.0.1:53959) in,usercout:2
+2026-04-05 21:41:37.455171 [info] : Client[19] in
+2026-04-05 21:41:37.456369 [info] : Client[19] quit!
+2026-04-05 21:41:37.456423 [info] : Client[19](127.0.0.1:53959) quit, UserCount:1
+2026-04-05 21:41:42.880781 [info] : Client[19](127.0.0.1:1689) in,usercout:2
+2026-04-05 21:41:42.880844 [info] : Client[19] in
+2026-04-05 21:42:01.458174 [info] : Client[20](127.0.0.1:22197) in,usercout:3
+2026-04-05 21:42:01.458214 [info] : Client[20] in
+2026-04-05 21:42:01.460736 [info] : RequestLine error
+2026-04-05 21:42:01.461115 [info] : Client[20] quit!
+2026-04-05 21:42:01.461272 [info] : Client[20](127.0.0.1:22197) quit, UserCount:2
+2026-04-05 21:42:01.475444 [info] : Client[20](127.0.0.1:23733) in,usercout:3
+2026-04-05 21:42:01.475542 [info] : Client[20] in
+2026-04-05 21:42:01.475745 [info] : Client[21](127.0.0.1:24757) in,usercout:4
+2026-04-05 21:42:01.475780 [info] : Client[21] in
+2026-04-05 21:42:01.477771 [info] : Client[22](127.0.0.1:26293) in,usercout:5
+2026-04-05 21:42:01.477792 [info] : Client[22] in
+2026-04-05 21:42:01.477799 [info] : Client[23](127.0.0.1:28853) in,usercout:6
+2026-04-05 21:42:01.477803 [info] : Client[23] in
+2026-04-05 21:42:01.477808 [info] : Client[24](127.0.0.1:30901) in,usercout:7
+2026-04-05 21:42:01.479135 [info] : Client[24] in
+2026-04-05 21:42:01.479162 [info] : Client[25](127.0.0.1:33973) in,usercout:8
+2026-04-05 21:42:01.479178 [info] : Client[25] in
+2026-04-05 21:42:07.459517 [info] : RequestLine error
+2026-04-05 21:42:07.459819 [info] : Client[20] quit!
+2026-04-05 21:42:07.459837 [info] : Client[20](127.0.0.1:23733) quit, UserCount:7
+2026-04-05 21:42:07.473938 [info] : Client[20](127.0.0.1:50871) in,usercout:8
+2026-04-05 21:42:07.474072 [info] : Client[20] in
+2026-04-05 21:42:10.866557 [info] : RequestLine error
+2026-04-05 21:42:10.866755 [info] : Client[23] quit!
+2026-04-05 21:42:10.866775 [info] : Client[23](127.0.0.1:28853) quit, UserCount:7
+2026-04-05 21:42:10.902365 [info] : Client[23](127.0.0.1:54455) in,usercout:8
+2026-04-05 21:42:10.902421 [info] : Client[23] in
+2026-04-05 21:42:22.245048 [info] : RequestLine error
+2026-04-05 21:42:22.246722 [info] : Client[20] quit!
+2026-04-05 21:42:22.246745 [info] : Client[20](127.0.0.1:50871) quit, UserCount:7
+2026-04-05 21:42:40.213589 [info] : Client[18] quit!
+2026-04-05 21:42:40.213974 [info] : Client[18](127.0.0.1:51399) quit, UserCount:6
+2026-04-05 21:42:47.891698 [info] : Client[19] quit!
+2026-04-05 21:42:47.892793 [info] : Client[19](127.0.0.1:1689) quit, UserCount:5
+2026-04-05 21:43:26.744871 [info] : Client[22] quit!
+2026-04-05 21:43:26.744966 [info] : Client[22](127.0.0.1:26293) quit, UserCount:4
+2026-04-05 21:43:26.745190 [info] : Client[23] quit!
+2026-04-05 21:43:26.745287 [info] : Client[23](127.0.0.1:54455) quit, UserCount:3
+2026-04-05 21:43:26.745367 [info] : Client[24] quit!
+2026-04-05 21:43:26.745383 [info] : Client[24](127.0.0.1:30901) quit, UserCount:2
+2026-04-05 21:43:26.745729 [info] : Client[21] quit!
+2026-04-05 21:43:26.745744 [info] : Client[21](127.0.0.1:24757) quit, UserCount:1
