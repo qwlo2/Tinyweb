@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/home/qiu/Tinyweberever/buffer -I/home/qiu/Tinyweberever/log -I/home/qiu/Tinyweberever/Pool -I/home/qiu/Tinyweberever/server -I/home/qiu/Tinyweberever/http -I/home/qiu/Tinyweberever/timer
 
-CXX_FLAGS = -g -Wall -Werror -std=c++14 -O0
+CXX_FLAGS = -O2 -Wall -std=c++14
 

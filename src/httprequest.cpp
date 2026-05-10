@@ -11,7 +11,7 @@ const std::unordered_map<std::string,int >   HttpRequest::DEFAULT_HTML_TAG{
  
 const std::unordered_set<std::string> HttpRequest::DEFAULT_HTML{
     "register.html","login.html","index.html","welcome.html",
-      "vedio.html" ,"pictures.html"
+      "video.html" ,"picture.html"
 };
 void HttpRequest::Init(){
     state_=PARSE_STATE::REQUEST_LINE;
@@ -50,7 +50,7 @@ bool HttpRequest::parse(Buffer& buff){
                  break;
             }
           if (lineend==buff.BeginWrite()) {
-            if(method_=="post"&&state_==FINISH){//requst只有post、put、patch有body，这里只考虑post
+            if(method_=="POST"&&state_==FINISH){//requst只有post、put、patch有body，这里只考虑post
               buff.RetrieveUntil(lineend);
             }
                break;
@@ -73,13 +73,13 @@ std::string HttpRequest::getmethod() const{
 std::string HttpRequest::getversion() const{
     return version_;
 }
-std::string HttpRequest::GetPost(const std::string& key) const{
-          assert(key!="");
-         if(post_.count(key)){
-            return post_.find(key)->second;
-         }
-        return "";
-}
+// std::string HttpRequest::GetPost(const std::string& key) const{
+//           assert(key!="");
+//          if(post_.count(key)){
+//             return post_.find(key)->second;
+//          }
+//         return "";
+// }
 std::string HttpRequest::GetPost(const char* key) const{
     assert(key != nullptr);
     if(post_.count(key) ) {
@@ -133,18 +133,18 @@ void HttpRequest::ParsePath_(){
     }
 }
 void HttpRequest::ParsePost_(){
-      if(method_=="POST"&&header_["Content_Type"]=="application/x-www-form-urlencoded"){
-          ParseFromUrlencoded_();
+      if(method_=="POST"&&header_["Content-Type"]=="application/x-www-form-urlencoded"){
+          //ParseFromUrlencoded_();
           if(DEFAULT_HTML_TAG.count(path_)){
               int tag=DEFAULT_HTML_TAG.find(path_)->second;
               LOG_DEBUG("Tag:%d",tag);
               if(tag==0||tag==1){
               bool islogin=(tag==1);
               if(UserVerify(post_["username"],post_["password"],islogin)){
-                     path_="welcome.html";
+                     path_="/welcome.html";
               }
               else {
-                  path_="error.html";
+                  path_="/error.html";
               }
             }
           }
@@ -153,7 +153,11 @@ void HttpRequest::ParsePost_(){
 }
 void HttpRequest::ParseBody_(const std::string& line){
     body_=line;
-    ParseFromUrlencoded_();
+    // JSON、纯文本还是二进制不解析
+    if(header_["Content-Type"] == "application/x-www-form-urlencoded") {
+        ParseFromUrlencoded_();
+    }
+    ParsePost_();
     state_=PARSE_STATE::FINISH;
     LOG_DEBUG("Body:%s,len:%d",body_.c_str(),body_.size());
 }

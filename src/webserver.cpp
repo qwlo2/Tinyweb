@@ -17,10 +17,10 @@ WebServer::WebServer(
           }
           //Instance()->Init和InitSocket_()都用了log，因此要先
           SqlConnPool::Instance()->Init("192.168.1.6",sqlPort,sqlUser,sqlPwd,dbName,connPoolNum);
+          InitEventMode_(trigMode);
            if(!InitSocket_()) { 
                 isClose_ = true;
            }
-          InitEventMode_(trigMode);
         if(openLog){
        // Log::Instance()->init(logLevel, "./log", ".log", logQueSize);
            if(isClose_) { 

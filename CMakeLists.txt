@@ -5,8 +5,9 @@ project(Tinywebserver)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 SET(CMAKE_CXX_FLAGS "-g -Wall -Werror -std=c++14")
 set(CMAKE_CXX_COMPILER "g++")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0")
 
+#set(CMAKE_CXX_FLAGS_DEBUG "-O0")
+SET(CMAKE_CXX_FLAGS "-O2 -Wall -std=c++14")
 set (EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/test/)
 aux_source_directory(src SRC_LIST1)
 
