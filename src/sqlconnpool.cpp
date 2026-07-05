@@ -75,5 +75,10 @@
 
               LOG_INFO("Connecting MySQL: host=%s, port=%d, user=%s, db=%s", host, port, user, dbName);
             MAX_CONN_=connSize;
-            sem_init(&semId_,0,MAX_CONN_);//0代表线程间使用，1代表进程间使用
+            sem_init(&semId_,0,MAX_CONN_);
+            //0代表线程间使用，1代表进程间使用
+            //MAX_CONN_代表
+            // 信号量值大于 0：减 1，然后继续执行；
+            // 信号量值等于 0：当前线程阻塞，等待其他线程增加信号量。
+
     }

@@ -44,14 +44,14 @@ public:
     */
 
 private:
-    bool ParseRequestLine_(const std::string& line);
-    void ParseHeader_(const std::string& line);
-    void ParseBody_(const std::string& line);
+    bool ParseRequestLine_(const std::string& line);//行
+    void ParseHeader_(const std::string& line);//头
+    void ParseBody_(const std::string& line);//体
 
     void ParsePath_();
-    void ParsePost_();
-    void ParseFromUrlencoded_();
-
+    void ParsePost_();//只有post才有体
+    void ParseFromUrlencoded_();//解析体中被加密的密码等
+    //通过sql验证密码等
     static bool UserVerify(const std::string& name, const std::string& pwd, bool isLogin);
 
     PARSE_STATE state_;

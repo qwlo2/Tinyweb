@@ -1,0 +1,60 @@
+
+项目总结：
+   有buffer和blockqueue2个辅助类
+   通过main初始化ip，port，sql等，首先初始化webserver，日志，初始化线程池（可能要问模板下为什么不能分为src和h文件实现）和连接池，
+都采用blockqueue来存储task和sqlcon，连接池通过信号量来实现来获取sqlcon等于0则阻塞等待连接对象，（若过用while会空转，cv要配合锁），
+为了保证对sqlcon对象的回收，没有采用RAII（资源获取即初始化），而是采用shared-ptr的reset，自定义删除器，在智能指针析构前把sqlcon
+送去blockqueue，并让post信号量。
+  随后设置listenfd和clientfd为ET还是LT，对于clinet还要设置EPOLLONESHOT，防止一个连接被多个线程同时处理，若为ET，还要设置他们分别为
+非阻塞，因为在ET模式下epoll只会通知一次，要把所有数据都read/write，或者accept，否则每次只有一部分被处理，while处理则当处理完成，
+在非nonblocking状态下会阻塞，在此状态下才会返回 EAGAIN，表示处理完毕。
+  初始化listenfd，加入epoll，并设置2个状态，
+   1、SO_REUSEADDR让服务器在关闭后，立即重启，不会因为client处于time-wait状态而失败（必须在 bind() 之前设置）
+      不会消除time-wait状态
+    2、SO_LINGER（逗留），调用 close() 时如何处理未发送数据，
+    linger option{
+    .l_onoff = 1,
+    .l_linger = 0
+};（00）：代表默认，正常返回close，内核继续处理数据和发送FIN
+   （1，1）：close最多阻塞一秒，可提前返回
+   （1，0）：强制关闭，不发送剩余数据于FIN,发送RST
+    3、lusten（，1024），代表全连接队列
+  启动服务器，等待连接，如果开启计时器，则把epoll的等待时间设置为下一次tick的时间，同时处理超时连接和待处理连接，否则一直阻塞，直到有可处理连接。
+1、listen连接则添加fd，并加入计时器，可读和可写处理时回延长计时器的时间。
+2、可读则将处理加入线程池队列，通过httpcon的read读取，调用httpcon的process函数，调用httprequst解析报文。
+通过状态机处理请求行（方法/路径/版本），请求头（长来凝结之类），请求体（post才），在解析会结合正则表达处理（可以用string优化），
+如果有请求体，会判断是否为URL编码，是则解码。=和&在作为分割符是不会编码，保持不变，其他的数字变为%16位进制的形式，将16位进制的进行转换成对应的char
+，随后通过sql连接验证登录密码等（看一下细节）
+
+，将解析的参数传给response对象，调用makerepsonse构造响应报文。
+随后通过process的返回值，判断是否处理成功，成功则注册为EPOLLOUT，因为EPOLLONESHOT要每次重新添加到epoll中，否为EPOLLIN。
+3、可写，也是将函数加入线程池队列，线程会将处理好的响应报文和资源，通过writev写入fd。
+随后通过返回值和erron，判断是否要关闭连接，如果写缓存区的剩余字节为0，且表示长连接，则关闭连接，否则设置为epollin
+如果不为0，且erron时EAGAIN，此时代表内核缓冲区已满，则设置为EPOLLOUT。
+否则就是出现问题，关闭连接。
+
+关闭服务器时，将listen关闭，sqlcon关闭，将线程池的关闭标志置为true，线程池的线程都时detach（），会自动回收。
+detach在主线程结束后会自动回收，但是可能访问以及析构对象，用join更好
+
+为什么必须join？
+等待线程结束、建立同步关系、回收线程资源，并保证相关对象在线程使用期间不会提前销毁。
+如果不join，会直接std::terminate，任务被终止
+
+//进行加密和处理sql注入
+
+mysql_res 存储mysql——quary的结果集
+mysql——quary是查询的api（sql对象，string）
+res=mysql——store——result 获取结果集
+mysql——free-result 释放结果集（不然会内存泄露）
+MYSQL_ROW row=mysql_fetch_row(res)取出第一行数据，row就是一个数据，多大取决于select了几个
+while可不断取出
+
+准备进行大修，加入主从Reactor和兼容mysql和lsm，并加入sql预处理和加盐hash
+将线程池分为：
+CPU pool（为了加大破解成本，会减慢解密速度，因此会阻塞，将其于http其他的分开）
+    密码哈希等 CPU 密集任务
+
+Storage pool：
+    MySQL / TinyLSM 访问
+
+实现htto增量 Parser，完善整个协议解析

@@ -82,6 +82,7 @@ bool HttpConn::process(){
      }
      response_.MakeResponse(writeBuff_);
      //read接受请求报文，write写响应报文
+     //将报文写入write——buffer，file在iov_[1]
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek()) ;
      iov_[0].iov_len=writeBuff_.ReadableBytes();
      iovCnt_=1;
@@ -103,7 +104,8 @@ ssize_t HttpConn::read(int* saveErrno){
     }while(isET);
     return len;
 }
-
+//将iov的0的writerbuffer和1的file
+//通过iov写入fd
 ssize_t HttpConn::write(int* saveErrno){
      ssize_t len=-1;
      do {

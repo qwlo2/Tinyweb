@@ -53,6 +53,7 @@ void WebServer::Start(){
         }
         while(!isClose_){
             if(timeoutMS_>0){
+                //每隔一个tick time 处理epoll的有响应连接和过期连接
                timeMS=timer_->GetNextTick();
            }
         int nums=epoller_->Wait(timeMS);

@@ -1,10 +1,15 @@
 #include "httprequest.h"
 #include <algorithm>
 //#include <iostream>
+#include <cstring>
+#include <memory>
+#include <mysql/field_types.h>
+#include <mysql/mysql.h>
 #include <string>
 #include <regex>
 #include "log.h"
 #include "sqlconnpool.h"
+
 const std::unordered_map<std::string,int >   HttpRequest::DEFAULT_HTML_TAG{
          {"/register.html",0} ,{"/login.html",1}
 };
@@ -38,6 +43,7 @@ bool HttpRequest::parse(Buffer& buff){
                   ParsePath_();
                   break;
             case HEADERS:
+                 //会循坏解析，因为直到正则不匹配状态才改变
                  ParseHeader_(line);
                  if(buff.ReadableBytes()<=4) {
                     state_ = FINISH;
@@ -49,6 +55,7 @@ bool HttpRequest::parse(Buffer& buff){
             default:
                  break;
             }
+            //请求体后没有/r/n
           if (lineend==buff.BeginWrite()) {
             if(method_=="POST"&&state_==FINISH){//requst只有post、put、patch有body，这里只考虑post
               buff.RetrieveUntil(lineend);
@@ -187,6 +194,7 @@ void HttpRequest::ParseFromUrlencoded_(){
                      break;
             case '%':
                      num=ConverHex(body_[i+1])*16+ConverHex(body_[i+2]);
+                     //int会转为char
                      body_[i]=num;
                      body_.erase(body_.begin()+i+1,body_.begin()+i+3);
                      size-=2;
@@ -208,56 +216,131 @@ void HttpRequest::ParseFromUrlencoded_(){
  }
    
  bool HttpRequest::UserVerify(const std::string& name, const std::string& pwd, bool isLogin){      
-    if(name==""||pwd==""){
-        return  false;
-      }
-      std::shared_ptr<MYSQL> sql=SqlConnPool::Instance()->GetConn();
-      assert(sql);
+    if(name.empty() || pwd.empty()){
+        return false;
+    }
 
-      bool flag=false;
-      char order[256]={0};
-      MYSQL_RES* res=nullptr;//指向select的结果集
-    
+    auto sql = SqlConnPool::Instance()->GetConn();
+    if(!sql){
+        return false;
+    }
+
+    constexpr const char* PASSWORD_SALT = "TingyWebServer_Password_Salt_v1";
+    const std::string salt(PASSWORD_SALT);
+    //len不能绑定临时值，因此要传一个len
+    auto bind_string = [](MYSQL_BIND& bind, const std::string& value,
+                          unsigned long& len) {
+        std::memset(&bind, 0, sizeof(bind));
+        len = static_cast<unsigned long>(value.size());
+        bind.buffer_type = MYSQL_TYPE_STRING;
+        bind.buffer = const_cast<char*>(value.data());
+        bind.buffer_length = len;
+        bind.length = &len;
+    };
+
+    auto prepare_stmt = [&](const char* query) -> MYSQL_STMT* {
+        MYSQL_STMT* stmt = mysql_stmt_init(sql.get());
+        if(!stmt){
+            return nullptr;
+        }
+        if(mysql_stmt_prepare(stmt, query, static_cast<unsigned long>(std::strlen(query)))){
+            mysql_stmt_close(stmt);
+            return nullptr;
+        }
+        return stmt;
+    };
+
+    // auto user_exists = [&]() -> bool {
+    //     const char* query = "SELECT 1 FROM user WHERE username=? LIMIT 1";
+    //     MYSQL_STMT* stmt = prepare_stmt(query);
+    //     if(!stmt){
+    //         return false;
+    //     }
+
+    //     MYSQL_BIND params[1];
+    //     unsigned long name_len = 0;
+    //     bind_string(params[0], name, name_len);
+
+    //     bool exists = false;
+    //     if(!mysql_stmt_bind_param(stmt, params) && !mysql_stmt_execute(stmt)){
+    //         int marker = 0;
+    //         MYSQL_BIND result[1];
+    //         std::memset(result, 0, sizeof(result));
+    //         result[0].buffer_type = MYSQL_TYPE_LONG;
+    //         result[0].buffer = &marker;
+    //         if(!mysql_stmt_bind_result(stmt, result) && mysql_stmt_fetch(stmt) == 0){
+    //             exists = true;
+    //         }
+    //     }
+
+    //     mysql_stmt_close(stmt);
+    //     return exists;
+    // };
+  
     if(isLogin){
-      snprintf(order,256,"SELECT username,password FROM user WHERE username='%s' LIMIT 1",name.c_str());
-      LOG_DEBUG("%s",order);
-      if(mysql_query(sql.get(),order)){//成功返回0，失败非0
-          if(res) {
-            mysql_free_result(res);
-          }
-          return flag;
-       }
-      res=mysql_store_result(sql.get());//将结果传回客户端，mydql_use_result返回指针通过它在服务器中遍历（不free，会阻塞，一次只能一个select）
-    //limit 1（0-1）限制了只有一条
-      while(MYSQL_ROW row=mysql_fetch_row(res)){
-            LOG_DEBUG("MYSQL ROW:%s %s",row[0],row[1]);
-            std::string password=row[1];
-            if(pwd==password){
-                flag=true;
-            } 
-            else {
-               flag=false;
-               LOG_DEBUG("PWD ERROR");
+        const char* query =
+            "SELECT 1 FROM user "
+            "WHERE username=? AND password=SHA2(CONCAT(?, ?), 256) "
+            "LIMIT 1";
+        MYSQL_STMT* stmt = prepare_stmt(query);
+        if(!stmt){
+            return false;
+        }
+        //SHA2是hash加密算法，256代表结果是256bit（32B），通常用16进制表示，即64位，
+        //256可以改为224 256 384 512 0，256最常用
+        //不过可能被gpu大量破解，优先 Argon2id / bcrypt / scrypt / PBKDF2
+        //一般要加盐即salt，因为相同的string，sha2后也相同
+        //加盐让相同密码产生不同结果，并使批量预计算攻击失效
+        //应该采取存储salt，然后每个salt不同，登录时通过查询salt+密码进行比较
+        MYSQL_BIND params[3];
+        unsigned long name_len = 0;
+        unsigned long pwd_len = 0;
+        unsigned long salt_len = 0;
+        bind_string(params[0], name, name_len);
+        bind_string(params[1], pwd, pwd_len);
+        bind_string(params[2], salt, salt_len);
+
+        bool ok = false;
+        if(!mysql_stmt_bind_param(stmt, params) && !mysql_stmt_execute(stmt)){
+            int marker = 0;
+            MYSQL_BIND result[1];
+            std::memset(result, 0, sizeof(result));
+            result[0].buffer_type = MYSQL_TYPE_LONG;
+            result[0].buffer = &marker;
+            if(!mysql_stmt_bind_result(stmt, result) && mysql_stmt_fetch(stmt) == 0){
+                ok = true;
             }
         }
+
+        mysql_stmt_close(stmt);
+        return ok;
     }
-    else {
-        LOG_DEBUG("register!");
-        bzero(order, 256);
-       snprintf(order,256,"INSERT INTO user(username,password) VALUES('%s','%s')",name.c_str(),pwd.c_str());
-       LOG_DEBUG("%s",order);
-       if(mysql_query(sql.get(),order)){
-          LOG_DEBUG( "Insert error!");
-          return false;
-       }
-       flag=true;
+    //注册
+    // if(user_exists()){
+    //     return false;
+    // }
+
+    const char* query =
+        "INSERT INTO user(username, password) "
+        "VALUES(?, SHA2(CONCAT(?, ?), 256))";
+    MYSQL_STMT* stmt = prepare_stmt(query);
+    if(!stmt){
+        return false;
     }
-    if(res) {
-        mysql_free_result(res);
-    }
-    LOG_DEBUG( "UserVerify success!!");
-    return  flag;
+
+    MYSQL_BIND params[3];
+    unsigned long name_len = 0;
+    unsigned long pwd_len = 0;
+    unsigned long salt_len = 0;
+    bind_string(params[0], name, name_len);
+    bind_string(params[1], pwd, pwd_len);
+    bind_string(params[2], salt, salt_len);
+
+    bool ok = !mysql_stmt_bind_param(stmt, params) && !mysql_stmt_execute(stmt);
+    mysql_stmt_close(stmt);
+    return ok;
  }
+
  int  HttpRequest::ConverHex(char ch){
          if(ch>='a'&&ch<='f')   return  ch-'a';
          if(ch>='A'&&ch<='F')   return  ch-'A';

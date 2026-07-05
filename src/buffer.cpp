@@ -97,6 +97,7 @@ ssize_t Buffer::ReadFd(int fd, int* saveErrno){
          HasWritten(len);
     }
     else  {
+        //扩容
         writePos_=buffer_.size();
         Append(buff,len-save_writableBytes);
     }
@@ -123,12 +124,15 @@ const char* Buffer::BeginPtr_() const{
 }
 //调整空间
 void Buffer::MakeSpace_(size_t len){
+    //begin____readpos____writepos____end
+    //是个循坏写入的buffer，当0-radpos和writepos-end都小于len时，扩容
      if(WritableBytes()+PrependableBytes()<len){
           buffer_.resize(writePos_+len+1);//防止/0
      }
      else {
         char* ch=BeginPtr_();
         size_t save=ReadableBytes();
+        //移动到最前方
          std::copy(ch+readPos_,ch+writePos_,ch);
          readPos_=0;
          writePos_=readPos_+save;

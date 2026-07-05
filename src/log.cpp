@@ -74,11 +74,13 @@ void Log::write(int level, const char *format,...){//可变参数函数,format�
                char Filename[LOG_NAME_LEN]={0};
                char tail[36]={0};
                snprintf(tail, 36, "%04d_%02d_%02d", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+               //不同天
                if(toDay_!=t.tm_mday){
                    snprintf(Filename,LOG_PATH_LEN-72,"%s%s%s",path_,tail,suffix_);
                    toDay_=t.tm_mday;
                    lineCount_=0;
                }
+               //同天满文件
                else {
                    snprintf(Filename, LOG_NAME_LEN,"%s%s-%d%s",path_,tail,lineCount_/MAX_LINES,suffix_ );
                }
@@ -101,10 +103,12 @@ void Log::write(int level, const char *format,...){//可变参数函数,format�
             va_end(vaList);
             buff_.HasWritten(m);
             buff_.Append("\n\0", 2);
+            //线程，异步
             if(isAsync_&&deque_&&!deque_->full()){
                 deque_->push_back(buff_.RetrieveAllToStr());
           
             }
+            //同步
             else {
                fputs(buff_.Peek(),fp_);
             }
@@ -158,6 +162,7 @@ void Log::SetLevel(int level){
 
 void Log::AsyncWrite_(){
     std::string str="";
+    //一直返回true，除close
     while (deque_->pop(str)) {
           std::lock_guard<std::mutex> locker(mutex_);
           fputs(str.c_str(),fp_);

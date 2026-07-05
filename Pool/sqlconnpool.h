@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <mysql/mysql.h>
+
 #include <queue>
 #include <mutex>
 #include <semaphore.h>
