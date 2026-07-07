@@ -32,12 +32,14 @@ const std::unordered_map<int,std::string> HttpResponse::CODE_STATUS{
      {200,"OK"},
     {400,"Bad Request"},
      {403,"Forbidden"},
-         {404,"Not Found"}
+     {404,"Not Found"},
+     {413,"Payload Too Large"}
 };
 const std::unordered_map<int,std::string> HttpResponse::CODE_PATH{
      {404,"/404.html"},
      {403,"/403.html"},
-     {400,"/400.html"}
+     {400,"/400.html"},
+     {413,"/400.html"}
 };
 HttpResponse::HttpResponse():code_(-1),isKeepAlive_(false),mmFile_(nullptr){
      path_.clear();
@@ -72,17 +74,22 @@ size_t HttpResponse::getFileLen() const{
     return mmFileStat_.st_size;
 }
 void HttpResponse::MakeResponse(Buffer& buff){
-    if(stat((srcDir_+path_).data(),&mmFileStat_)||S_ISDIR(mmFileStat_.st_mode)){
+    //只会传400，413，200
+    if(code_>=400){
+        ErrorHtml_();
+    }
+    else if(stat((srcDir_+path_).data(),&mmFileStat_)||S_ISDIR(mmFileStat_.st_mode)){
         //stat返回0，失败<0（errno来获取错误），S_ISDI是否为目录，st_mode有文件类型和权限
        code_=404;
-    } 
+       ErrorHtml_();
+    }
     else if(!(mmFileStat_.st_mode&S_IRUSR)){//判断文件是否可读 IRUSR 文件所有者是否有读权限 S_IROTH 其他用户（非所有者 / 非所属组）是否有读权限
         code_=403;
+        ErrorHtml_();
     }
     else {
        code_=200;
     }
-    ErrorHtml_();//若为404，403则更换path
     AddStateLine_(buff);
     AddHeader_(buff);
     AddContent_(buff);
@@ -106,7 +113,8 @@ void HttpResponse::AddStateLine_(Buffer &buff){
 }
 void HttpResponse::AddHeader_(Buffer &buff){
     buff.Append("Connection:");
-    if(isKeepAlive_){        buff.Append("keep-alive\r\n");
+    if(isKeepAlive_){        
+        buff.Append("keep-alive\r\n");
         buff.Append("Keep-alive:max=6,timeout=120\r\n");
     }
     else {
@@ -123,6 +131,7 @@ void HttpResponse::AddContent_(Buffer &buff){//获取file.size
      LOG_DEBUG("File Name:%s",(srcDir_+path_).data());
      void* ptr=mmap(0,mmFileStat_.st_size,PROT_READ,MAP_PRIVATE,srcfd,0);
      if(ptr==MAP_FAILED){//MAP_FAILED=(void*)-1
+        close(srcfd);
         ErrorContent(buff,"File NotFound");
         return;
      }

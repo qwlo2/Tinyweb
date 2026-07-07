@@ -58,3 +58,46 @@ Storage pool：
     MySQL / TinyLSM 访问
 
 实现htto增量 Parser，完善整个协议解析
+
+memory map mmap(内存映射)：
+把文件的一段内容映射到进程的虚拟地址空间。映射成功后，可以像访问普通内存一样访问文件内容
+void* mmap(
+    void* addr,//通常不指定映射起始地址，os选择
+    size_t length,//映射多少字节
+    int prot,
+    int flags,
+    MAP_PRIVATE：映射允许写入，修改也不会写回原文件，通常采用写时复制
+    MAP_SHARED：修改映射区域可能写回原文件，其他映射该文件的进程也可能看到修改
+    int fd,
+    off_t offset//一般必须是系统页面大小的整数倍
+);
+成功返回成功时返回映射区域的起始地址
+MAP_FAILED
+对应的文件并未一定在内存，只是建立映射，且由内核维护，fd可关闭，
+只能用munmap关闭
+
+
+
+主从reacto
+one loop per thread 代表一个线程一个事件循环
+为了让线程只处理自己的loop，每个loop都有任务队列：
+用于把“必须在某个 Reactor 线程中执行的操作”，安全地投递到该线程。
+
+eventloop和eventloopthread实现了，pool还没有
+在webserver中实现分发函数，在绑定到acceptor的callback（用来分发到对应的任务队列）
+还要有一个函数来处理add，用lambda包装一层，不用写函数，用addfd来从当即可
+
+处理到分发函数，细节还要处理一下，wake已做，还要一个函数做writewake和readwake
+
+fd有几种类型，因此内部的数据结构不一样，socket的SOCK_STRAM/SOCK_DGRAM
+分别是tcp（字节流），udp（数据报）
+tcp不存在报文，没有报文边界，read没有字节流会阻塞，返回0代表关闭
+udp数据报协议，可以发送长度为 0 的 UDP datagram
+
+event的内部是一个64位计数器
+eventfd（wakefd），因此对他的读写要uint64，8字节一次
+
+eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+eventfd——t value
+eventfd_read、eventfd_write
+只是对read和write的封装

@@ -9,6 +9,8 @@
 #include <arpa/inet.h>   // sockaddr_in
 #include <stdlib.h>      // atoi()
 #include <errno.h>    
+#include <algorithm>
+#include <cstring>
  bool HttpConn::isET;
  const char* HttpConn::srcDir;
  std::atomic<int> HttpConn::userCount;
@@ -16,6 +18,9 @@ HttpConn::HttpConn(){
      fd_=-1;
      addr_={0};
      isClose_=true;
+      keepAlive_=false;
+      iovCnt_=0;
+      std::memset(iov_,0,sizeof(iov_));
 }
 
 HttpConn::~HttpConn(){
@@ -29,6 +34,11 @@ void HttpConn::init(int sockFd, const sockaddr_in& addr){
        addr_=addr;
        readBuff_.RetrieveAll();
        writeBuff_.RetrieveAll();
+       response_.UnmapFile();
+       request_.Init();
+       keepAlive_=false;
+       iovCnt_=0;
+       std::memset(iov_,0,sizeof(iov_));
        isClose_=false;
        LOG_INFO("Client[%d](%s:%d) in,usercout:%d",fd_,GetIP(),addr_.sin_port,(int)userCount);
 }
@@ -69,21 +79,45 @@ sockaddr_in HttpConn::GetAddr() const{
 }
     
 bool HttpConn::process(){
-     request_.Init();
-     if(readBuff_.ReadableBytes()<=0){
+     
+     auto parseRet=request_.parse(readBuff_);
+     if(parseRet==HttpRequest::ParseResult::Incomplete){
         return false;
      }
-     else if (request_.parse(readBuff_)) {
-            LOG_DEBUG("%s",request_.getpath().c_str());
-            response_.Init(srcDir,request_.getpath(),request_.IsKeepAlive(),200);
+
+     writeBuff_.RetrieveAll();
+    // response_.UnmapFile();
+    //  iovCnt_=0;
+    //  std::memset(iov_,0,sizeof(iov_));
+
+     std::string path;
+     int code=200;
+     keepAlive_=false;
+
+     if(parseRet==HttpRequest::ParseResult::Complete){
+            path=request_.getpath();
+            keepAlive_=request_.IsKeepAlive();
+            code=200;
+            //还有其他的，不 readBuff_.RetrieveAll();
+     }
+     else if(parseRet==HttpRequest::ParseResult::PayloadTooLarge){
+           path="/400.html";
+           code=413;
+           readBuff_.RetrieveAll();
      }
      else {
-           response_.Init(srcDir,request_.getpath(),false,400);
+           path="/400.html";
+           code=400;
+           readBuff_.RetrieveAll();
      }
+
+     // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
+     request_.Init();
+     //只有403在MakeResponse中用读权限判断给出
+     response_.Init(srcDir,path,keepAlive_,code);
      response_.MakeResponse(writeBuff_);
-     //read接受请求报文，write写响应报文
-     //将报文写入write——buffer，file在iov_[1]
-     iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek()) ;
+
+     iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
      iovCnt_=1;
      if(response_.getFile()&&response_.getFileLen()>0){
@@ -91,18 +125,29 @@ bool HttpConn::process(){
           iov_[1].iov_len=response_.getFileLen();
           iovCnt_++;
      }
-      LOG_DEBUG("filesize:%d, %d  to %d", response_.getFile() , iovCnt_, ToWriteBytes());
+     LOG_DEBUG("filesize:%zu, iovCnt:%d, toWrite:%d", response_.getFileLen(), iovCnt_, ToWriteBytes());
     return true;
 }
 ssize_t HttpConn::read(int* saveErrno){
     ssize_t len=0;
+    ssize_t total=0;
     do{
         len=readBuff_.ReadFd(fd_,saveErrno);
-        if(len<0){
-            break;
+        if(len>0){
+            total+=len;
+            continue;
         }
+        if(len==0){
+            return total;
+        }
+        
+        if(*saveErrno==EAGAIN||*saveErrno==EWOULDBLOCK){
+            //是否为第一次
+            return total>0?total:len;
+        }
+        return len;
     }while(isET);
-    return len;
+    return total;
 }
 //将iov的0的writerbuffer和1的file
 //通过iov写入fd
@@ -114,7 +159,10 @@ ssize_t HttpConn::write(int* saveErrno){
            *saveErrno=errno;
             break;
         }
-        if(iov_[0].iov_len+iov_[1].iov_len==0){
+        if(len==0){
+            break;
+        }
+        if(ToWriteBytes()==0){
             break;
         }
         else if(static_cast<size_t>(len)>iov_[0].iov_len){

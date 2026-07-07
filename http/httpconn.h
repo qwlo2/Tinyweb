@@ -26,13 +26,17 @@ public:
     sockaddr_in GetAddr() const;
     
     bool process();
-
-    int ToWriteBytes() { 
-        return iov_[0].iov_len + iov_[1].iov_len; 
+    
+    int ToWriteBytes() const {
+        size_t bytes = 0;
+        for(int i = 0; i < iovCnt_; ++i) {
+            bytes += iov_[i].iov_len;
+        }
+        return static_cast<int>(bytes);
     }
 
     bool IsKeepAlive() const {
-        return request_.IsKeepAlive();
+        return keepAlive_;
     }
 
     static bool isET;
@@ -45,6 +49,7 @@ private:
     struct  sockaddr_in addr_;
 
     bool isClose_;
+    bool keepAlive_;
     
     int iovCnt_;
     struct iovec iov_[2];

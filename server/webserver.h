@@ -1,18 +1,25 @@
 #pragma once
 #include "epoll.h"
+#include "eventLoopPool.h"
+#include "eventloop.h"
 #include "heaptimer.h"
 #include "threadpool.h"
 #include "httpconn.h"
+#include <memory>
 //Reator模式，不是主从reator（多个epoll），主从要采用多个线程池，2（从reator+业务处理）或者N（从reator+M个业务处理）
 //非阻塞连接用select或者poll
 class WebServer {
 public:
-    WebServer(
-        int port, int trigMode, int timeoutMS, bool OptLinger, 
+    // WebServer(
+    //     int port, int trigMode, int timeoutMS,int nums ,bool OptLinger, 
+    //     int sqlPort, const char* sqlUser, const  char* sqlPwd, 
+    //     const char* dbName, int connPoolNum, int threadNum,
+    //     bool openLog, int logLevel, int logQueSize);
+WebServer(
+        int port, int trigMode, int timeoutMS,int nums ,bool OptLinger, 
         int sqlPort, const char* sqlUser, const  char* sqlPwd, 
         const char* dbName, int connPoolNum, int threadNum,
         bool openLog, int logLevel, int logQueSize);
-
     ~WebServer();
     void Start();
 
@@ -33,6 +40,8 @@ private:
     void OnWrite_(HttpConn* client);
     void OnProcess(HttpConn* client);
 
+    //分发clientfd
+    void dealconn(int fd,sockaddr_in sa);
     static const int MAX_FD = 65536;
 
     static int SetFdNonblock(int fd);
@@ -43,12 +52,17 @@ private:
     bool isClose_;
     int listenFd_;
     char* srcDir_;
-    
+    int caplicity;
+
     uint32_t listenEvent_;
-    uint32_t connEvent_;//clientEvent_
+    uint32_t connEvent_;//clientEvent_s
    
     std::unique_ptr<HeapTimer> timer_;
     std::unique_ptr<ThreadPool> threadpool_;
     std::unique_ptr<Epoller> epoller_;
     std::unordered_map<int, HttpConn> users_;
+
+    std::unique_ptr<eventloop> loop;
+    std::unique_ptr<eventLoopPool> eventpool;
+    void conncallbak(int fd);
 };

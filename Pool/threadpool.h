@@ -12,10 +12,10 @@ class ThreadPool{
         std::mutex mutex_;
         std::condition_variable cv;
         std::queue<std::function<void()>>  tasks;
-        bool Isclose;
+        bool Isclose{false};
       };
       std::shared_ptr<Pool>  pool_;
-
+      //可以添加一个vector，方便回收
       public:
              explicit ThreadPool(int threadcout=std::thread::hardware_concurrency()):pool_(std::make_shared<Pool>()){
                for(int i=0;i<threadcout;i++)
@@ -80,7 +80,7 @@ ThreadPool(ThreadPool&&) = default;
         if(static_cast<bool>(pool_)){
           {
             std::lock_guard<std::mutex> lock(pool_->mutex_);
-            pool_->Isclose=false;
+            pool_->Isclose=true;
           }
           pool_->cv.notify_all();
         }

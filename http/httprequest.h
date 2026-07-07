@@ -1,14 +1,24 @@
 #pragma once
+#include <cstddef>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include "buffer.h"
+
 class HttpRequest {
 public:
     enum PARSE_STATE {
         REQUEST_LINE,//请求行（方法+路径+版本） URL=协议+地址+端口+路径（请求的资源的地址）
         HEADERS,//请求头（附加信息）
         BODY,//请求体
-        FINISH,        
+        FINISH,
+    };
+
+    enum class ParseResult {
+        Complete,
+        Incomplete,//没有完全读完
+        BadRequest,
+        PayloadTooLarge,
     };
 
     enum HTTP_CODE {
@@ -21,12 +31,12 @@ public:
         INTERNAL_ERROR,
         CLOSED_CONNECTION,
     };
-    
+
     HttpRequest() { Init(); }
     ~HttpRequest() = default;
 
     void Init();
-    bool parse(Buffer& buff);
+    ParseResult parse(Buffer& buff);
 
     std::string getpath() const;
     std::string& getpath();
@@ -37,15 +47,15 @@ public:
 
     bool IsKeepAlive() const;
 
-    /* 
-    todo 
+    /*
+    todo
     void HttpConn::ParseFormData() {}
     void HttpConn::ParseJson() {}
     */
 
 private:
-    bool ParseRequestLine_(const std::string& line);//行
-    void ParseHeader_(const std::string& line);//头
+    ParseResult ParseRequestLine_(const std::string& line);//行
+    ParseResult ParseHeader_(const std::string& line);//头
     void ParseBody_(const std::string& line);//体
 
     void ParsePath_();
@@ -54,10 +64,24 @@ private:
     //通过sql验证密码等
     static bool UserVerify(const std::string& name, const std::string& pwd, bool isLogin);
 
+    static std::string Trim_(const std::string& str);
+    static std::string ToLower_(std::string str);
+    static bool ParseContentLength_(const std::string& value, size_t& len);
+
+    static constexpr size_t MAX_REQUEST_LINE_SIZE = 8 * 1024;
+    static constexpr size_t MAX_HEADER_TOTAL_SIZE = 64 * 1024;
+    static constexpr size_t MAX_HEADER_COUNT = 100;
+    static constexpr size_t MAX_BODY_SIZE = 1024 * 1024;
+
     PARSE_STATE state_;
     std::string method_, path_, version_, body_;
     std::unordered_map<std::string, std::string> header_;
     std::unordered_map<std::string, std::string> post_;
+
+    size_t contentLength_;
+    size_t headerBytes_;
+    size_t headerCount_;
+    bool hasContentLength_;
 
     static const std::unordered_set<std::string> DEFAULT_HTML;//set只有key，用来判断是否存在
     static const std::unordered_map<std::string, int> DEFAULT_HTML_TAG;//根据html找对应的业务
