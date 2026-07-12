@@ -28,7 +28,7 @@ WebServer::WebServer(
             db=std::move(std::move(db_));
             threadionums=threadioNum_;
             threadarnums=threadarNum_;
-            port=sqlPort;
+            sqlport=sqlPort;
             ip=ip_;
           // 使用绝对路径，避免工作目录的影响
           srcDir_ = (char*)malloc(256);
@@ -40,9 +40,9 @@ WebServer::WebServer(
           }
           //Instance()->Init和InitSocket_()都用了log，因此要先
           if (db=="LSM") {
-             lsmconnpool::Instance()->Init("127.0.0.1",sqlPort,connPoolNum);
+             lsmconnpool::Instance()->Init(ip_,sqlPort,connPoolNum);
           }else {
-            SqlConnPool::Instance()->Init("127.0.0.1",sqlPort,sqlUser,sqlPwd,dbName,connPoolNum);
+            SqlConnPool::Instance()->Init(ip_,sqlPort,sqlUser,sqlPwd,dbName,connPoolNum);
           }
           //SqlConnPool::Instance()->Init("192.168.1.6",sqlPort,sqlUser,sqlPwd,dbName,connPoolNum);
          // lsmconnpool::Instance()->Init("192.168.1.6",sqlPort,connPoolNum);
