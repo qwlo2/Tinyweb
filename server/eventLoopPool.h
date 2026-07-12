@@ -12,6 +12,7 @@ class eventLoopPool{
     int port;
     int event;
     int nextid{-1};
+  
     public:
     eventLoopPool(int nums,int timeoutms,int port,int event);
     ~eventLoopPool();

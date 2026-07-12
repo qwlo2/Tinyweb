@@ -26,7 +26,7 @@ private:
     //冗余
     int useCount_;
     int freeCount_;
-
+    bool is_inited{false};
     std::queue<MYSQL *> connQue_;
     std::mutex mutex_;
     sem_t semId_;

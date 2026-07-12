@@ -1,4 +1,5 @@
  #include "httpconn.h"
+#include "httprequest.h"
  #include "log.h"
 #include <netinet/in.h>
 #include <string>
@@ -20,6 +21,7 @@ HttpConn::HttpConn(){
      isClose_=true;
       keepAlive_=false;
       iovCnt_=0;
+      
       std::memset(iov_,0,sizeof(iov_));
 }
 
@@ -38,6 +40,7 @@ void HttpConn::init(int sockFd, const sockaddr_in& addr){
        request_.Init();
        keepAlive_=false;
        iovCnt_=0;
+    
        std::memset(iov_,0,sizeof(iov_));
        isClose_=false;
        LOG_INFO("Client[%d](%s:%d) in,usercout:%d",fd_,GetIP(),addr_.sin_port,(int)userCount);
@@ -77,30 +80,35 @@ const char* HttpConn::GetIP() const{
 sockaddr_in HttpConn::GetAddr() const{
      return addr_;
 }
-    
-bool HttpConn::process(){
+// bool HttpConn::prase(){
+//      return request_.parse(readBuff_);
+// }
+ProcessResult HttpConn::process(){
      
-     auto parseRet=request_.parse(readBuff_);
-     if(parseRet==HttpRequest::ParseResult::Incomplete){
-        return false;
+     auto result=request_.parse(readBuff_);
+     //不完整
+     if(result==HttpRequest::ParseResult::Incomplete){
+        return  ProcessResult::NeedRead;
      }
-
-     writeBuff_.RetrieveAll();
-    // response_.UnmapFile();
-    //  iovCnt_=0;
-    //  std::memset(iov_,0,sizeof(iov_));
-
-     std::string path;
+     //完整但是要prasepost
+     if (result==HttpRequest::ParseResult::Complete&&request_.IsAuthRequest()) {
+             return ProcessResult::NeedAuth;
+     }
+      makeResponse(result);
+    return ProcessResult::ReadyWrite;
+}
+void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
+      std::string path;
      int code=200;
      keepAlive_=false;
 
-     if(parseRet==HttpRequest::ParseResult::Complete){
+     if(sta==HttpRequest::ParseResult::Complete){
             path=request_.getpath();
             keepAlive_=request_.IsKeepAlive();
             code=200;
             //还有其他的，不 readBuff_.RetrieveAll();
      }
-     else if(parseRet==HttpRequest::ParseResult::PayloadTooLarge){
+     else if(sta==HttpRequest::ParseResult::PayloadTooLarge){
            path="/400.html";
            code=413;
            readBuff_.RetrieveAll();
@@ -126,7 +134,6 @@ bool HttpConn::process(){
           iovCnt_++;
      }
      LOG_DEBUG("filesize:%zu, iovCnt:%d, toWrite:%d", response_.getFileLen(), iovCnt_, ToWriteBytes());
-    return true;
 }
 ssize_t HttpConn::read(int* saveErrno){
     ssize_t len=0;

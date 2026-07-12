@@ -13,9 +13,12 @@
 #include <mysql/mysql.h>
 #include <string>
 #include <regex>
+#include <utility>
 #include "log.h"
+#include "lsmconnpool.h"
 #include "sqlconnpool.h"
-
+#include "lsm.h"
+#include "webserver.h"
 
 namespace {
 constexpr uint32_t ARGON2_TIME_COST = 2;
@@ -67,6 +70,8 @@ bool HashPasswordArgon2id(const std::string& password, std::string& encoded) {
     return true;
 }
 //不用salt，会自动从encoded中解析，再把salt带入，看是否相同
+//数据库里面存储的是加密过后的，但不是直接将password用HashPasswordArgon2id加密然后比较
+//而是调用argon2id_verify解析加密的encoded，从提取参数，在加密进行比较
 bool VerifyPasswordArgon2id(const std::string& encoded, const std::string& password) {
     //它会寻找起始位置不超过 pos 的最后一次匹配。、
     //因此，用来检测开头，satrt——with
@@ -97,6 +102,7 @@ void HttpRequest::Init(){
     headerBytes_=0;
     headerCount_=0;
     hasContentLength_=false;
+
 }
 
 HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
@@ -363,8 +369,10 @@ void HttpRequest::ParsePost_(){
               LOG_DEBUG("Tag:%d",tag);
               if(tag==0||tag==1){
               bool islogin=(tag==1);
-              if(UserVerify(post_["username"],post_["password"],islogin)){
+              if(WebServer::db=="MYSQL"&&UserVerify_MYSQL(post_["username"],post_["password"],islogin)){
                      path_="/welcome.html";
+              }else if (WebServer::db=="LSM"&&UserVerify_LSM(post_["username"],post_["password"],"127.0.0.1",6380, islogin)) {
+                    path_="/welcome.html";
               }
               else {
                   path_="/error.html";
@@ -380,7 +388,7 @@ void HttpRequest::ParseBody_(const std::string& line){
     if(header_["Content-Type"] == "application/x-www-form-urlencoded") {
         ParseFromUrlencoded_();
     }
-    ParsePost_();
+   // ParsePost_();
     state_=PARSE_STATE::FINISH;
     LOG_DEBUG("Body:%s,len:%d",body_.c_str(),body_.size());
 }
@@ -434,7 +442,7 @@ void HttpRequest::ParseFromUrlencoded_(){
          
  }
    
- bool HttpRequest::UserVerify(const std::string& name, const std::string& pwd, bool isLogin){
+ bool HttpRequest::UserVerify_MYSQL(const std::string& name, const std::string& pwd, bool isLogin){
     if(name.empty() || pwd.empty()){
         return false;
     }
@@ -680,7 +688,64 @@ void HttpRequest::ParseFromUrlencoded_(){
 //     return ok;
 //  }
  int  HttpRequest::ConverHex(char ch){
-         if(ch>='a'&&ch<='f')   return  ch-'a';
-         if(ch>='A'&&ch<='F')   return  ch-'A';
+         if(ch>='a'&&ch<='f')   return  ch-'a'+10;
+         if(ch>='A'&&ch<='F')   return  ch-'A'+10;
          return  ch-'0';
+ }
+ bool HttpRequest::UserVerify_LSM(const std::string& name, const std::string& pwd,const char * ip,int port, bool isLogin){
+   if (name.empty() || pwd.empty()) {
+     return false;
+   }
+        auto sql=lsmconnpool::Instance()->GetConn();
+        if (!sql) {
+           return false;
+        }
+        if (isLogin) {
+            bool ret=lsm::lsm_quary(sql.get(),{"hget","user",name});
+            if (!ret) {
+                LOG_ERROR("lsm quary error");
+                return false;
+            }
+            LSM::lsm_result result;
+
+            ret=lsm::lsm_result_store(sql.get(),result);
+             if (!ret) {
+                LOG_ERROR("lsm rece  error");
+                return false;
+            }
+            auto ans=std::move(lsm::lsm_fecth_row(result));
+            //失败返回$-1，成功返回$n hashpassword
+            if (ans=="$-1") {
+                   return false;
+            }
+            ans=std::move(lsm::lsm_fecth_row(result));
+            if (!VerifyPasswordArgon2id(ans,pwd)) {
+                return false;
+            }
+           
+        }else {
+            std::string encoded;
+              bool ret= HashPasswordArgon2id(pwd,encoded);
+              if (!ret) {
+                LOG_ERROR(" HashPasswordArgon2id error");
+                 return false;
+              } 
+          ret =lsm::lsm_put(sql.get(),{"HSETNX","user",name,encoded});
+            if (!ret) {
+                LOG_ERROR("lsm quary error");
+                return false;
+            }
+            LSM::lsm_result result;
+            ret=lsm::lsm_result_store(sql.get(),result);
+            if (!ret) {
+               LOG_ERROR("lsm rece  error");
+                return false;
+            }
+            auto ans=std::move(lsm::lsm_fecth_row(result));
+            if (ans!=":1") {
+                LOG_DEBUG("register error")
+                return false;
+            }
+        }
+        return true;
  }

@@ -3,8 +3,8 @@
 #include <memory>
 #include <sys/types.h>
 
-eventLoopPool::eventLoopPool(int nums,int timeoutms,int port,int event):caplicity(nums),timeoutMs(timeoutms),
-port(port),event(event){
+eventLoopPool::eventLoopPool(int nums,int timeoutms,int port,int event_):caplicity(nums),timeoutMs(timeoutms),
+port(port),event(event_){
 
 }
 eventLoopPool::~eventLoopPool(){

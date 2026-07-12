@@ -3,9 +3,11 @@
 #include "epoll.h"
 #include "httpconn.h"
 #include "heaptimer.h"
+#include <atomic>
 #include <mutex>
 #include <functional>
 #include <memory>
+#include <string>
 #include <sys/epoll.h>
 #include <netinet/in.h>
 #include <sys/types.h>
@@ -28,12 +30,13 @@ class eventloop{
      int wakeupfd{-1};
      int port;
       int event;
+   
      std::mutex mutex_;
-     std::unordered_map<int,HttpConn> httpcoon;
+     std::unordered_map<int,std::shared_ptr<HttpConn>> httpcoon;
        //fd是进程共享，并且可以跨线程addepoll，但是为了不混乱，用任务队列串行执行（vctor）
       std::vector<std::function<void()>> pendindtask;
       std::unique_ptr<HeapTimer>   timer;
-      bool stopping{false};
+     std::atomic< bool > stopping{false};
 
       int SetFdNonblock(int fd);
       void SendError_(int fd, const char*info);

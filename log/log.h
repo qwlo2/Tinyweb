@@ -41,7 +41,7 @@ private:
     int lineCount_;
     int toDay_;//记录当天日期
 
-    bool isOpen_;
+    bool isOpen_{false};
  
     Buffer buff_;
     int level_;//输出级别

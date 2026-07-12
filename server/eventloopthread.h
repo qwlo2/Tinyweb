@@ -4,11 +4,12 @@
 #include <functional>
 
 #include <mutex>
+
 #include <thread>
 class eventloopthread{
      private:
        //它指向的时线程函数中的局部变量，不要管析构
-        eventloop* loop;
+        eventloop* loop{nullptr};
 
         std::thread  thread_;
         int timeoutMs;
@@ -16,7 +17,7 @@ class eventloopthread{
         std::condition_variable cv;
         int port;
         int event;
-  
+      
      public:
        void start();
        void threadFunc();

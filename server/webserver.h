@@ -3,9 +3,10 @@
 #include "eventLoopPool.h"
 #include "eventloop.h"
 #include "heaptimer.h"
-#include "threadpool.h"
+//#include "threadpool.h"
 #include "httpconn.h"
 #include <memory>
+#include <string>
 //Reator模式，不是主从reator（多个epoll），主从要采用多个线程池，2（从reator+业务处理）或者N（从reator+M个业务处理）
 //非阻塞连接用select或者poll
 class WebServer {
@@ -18,11 +19,13 @@ public:
 WebServer(
         int port, int trigMode, int timeoutMS,int nums ,bool OptLinger, 
         int sqlPort, const char* sqlUser, const  char* sqlPwd, 
-        const char* dbName, int connPoolNum, int threadNum,
+        const char* dbName,const char* db, int connPoolNum, int threadNum,
         bool openLog, int logLevel, int logQueSize);
     ~WebServer();
     void Start();
-
+   inline static std::string db{};
+   inline static int  threadnums{0};
+  // int webserver::db{};
 private:
     bool InitSocket_(); 
     void InitEventMode_(int trigMode);
@@ -56,12 +59,15 @@ private:
 
     uint32_t listenEvent_;
     uint32_t connEvent_;//clientEvent_s
-   
+    
+    
+
     std::unique_ptr<HeapTimer> timer_;
-    std::unique_ptr<ThreadPool> threadpool_;
+    //std::unique_ptr<ThreadPool> threadpool_;
+ 
     std::unique_ptr<Epoller> epoller_;
     std::unordered_map<int, HttpConn> users_;
-
+  
     std::unique_ptr<eventloop> loop;
     std::unique_ptr<eventLoopPool> eventpool;
     void conncallbak(int fd);

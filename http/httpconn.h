@@ -3,6 +3,11 @@
 #include "httprequest.h"
 #include "httpresponse.h"
 #include <netinet/in.h>
+enum class ProcessResult {
+    NeedRead,
+    ReadyWrite,
+    NeedAuth
+};
 class HttpConn {
 public:
     HttpConn();
@@ -25,8 +30,12 @@ public:
     
     sockaddr_in GetAddr() const;
     
-    bool process();
-    
+    ProcessResult process();
+   void processAuth() {
+    request_.DoAuth();
+    makeResponse(HttpRequest::ParseResult::Complete);
+}
+    void makeResponse(HttpRequest::ParseResult  sta);
     int ToWriteBytes() const {
         size_t bytes = 0;
         for(int i = 0; i < iovCnt_; ++i) {
@@ -56,7 +65,7 @@ private:
     
     Buffer readBuff_; // 读缓冲区
     Buffer writeBuff_; // 写缓冲区
-
+   
     HttpRequest request_;
     HttpResponse response_;
 };

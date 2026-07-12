@@ -2,20 +2,31 @@
 #include "eventLoopPool.h"
 #include "eventloop.h"
 #include "log.h"
+
+#include "lsmconnpool.h"
 #include "sqlconnpool.h"
+#include "threadpool.h"
 #include <arpa/inet.h>
 
 #include <functional>
 #include <memory>
 #include <netinet/in.h>
+#include <string>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
+
+
 WebServer::WebServer(
         int port, int trigMode, int timeoutMS, int nums,bool OptLinger, 
         int sqlPort, const char* sqlUser, const  char* sqlPwd, 
-        const char* dbName, int connPoolNum, int threadNum,
+        const char* dbName, const char* db_,int connPoolNum, int threadNum,
         bool openLog, int logLevel, int logQueSize):port_(port), openLinger_(OptLinger), timeoutMS_(timeoutMS), isClose_(false),
-            timer_(std::make_unique<HeapTimer> ()), threadpool_(std::make_unique<ThreadPool>(threadNum)), epoller_(std::make_unique<Epoller>()){
+            timer_(std::make_unique<HeapTimer> ()),
+            epoller_(std::make_unique<Epoller>()){
+
+            db=std::move(std::move(db_));
+            threadnums=threadNum;
           // 使用绝对路径，避免工作目录的影响
           srcDir_ = (char*)malloc(256);
           strcpy(srcDir_, "/home/qiu/Tinyweberever/resources");
@@ -25,7 +36,14 @@ WebServer::WebServer(
              Log::Instance()->init(logLevel, "./log", ".log", logQueSize);
           }
           //Instance()->Init和InitSocket_()都用了log，因此要先
-          SqlConnPool::Instance()->Init("192.168.1.6",sqlPort,sqlUser,sqlPwd,dbName,connPoolNum);
+          if (db=="LSM") {
+             lsmconnpool::Instance()->Init("127.0.0.1",sqlPort,connPoolNum);
+          }else {
+            SqlConnPool::Instance()->Init("127.0.0.1",sqlPort,sqlUser,sqlPwd,dbName,connPoolNum);
+          }
+          //SqlConnPool::Instance()->Init("192.168.1.6",sqlPort,sqlUser,sqlPwd,dbName,connPoolNum);
+         // lsmconnpool::Instance()->Init("192.168.1.6",sqlPort,connPoolNum);
+
           InitEventMode_(trigMode);
           //主从reactor
           loop=std::make_unique<eventloop>(timeoutMS,port,listenEvent_);
@@ -60,11 +78,19 @@ WebServer::WebServer(
  WebServer::~WebServer(){
         isClose_=true;
         //close(listenFd_);
+        ThreadPool::init_Argon2id()->stop();
+        ThreadPool::init_io()->stop();
         loop->stop();
         eventpool->stop();
 
         free(srcDir_);
+        if (db=="LSM") {
+          lsmconnpool::Instance()->ClosePool();
+        }else {
         SqlConnPool::Instance()->ClosePool();
+        }
+        
+       
  }
  void WebServer::Start(){
         eventpool->startloopPool();
@@ -187,14 +213,14 @@ void WebServer::InitEventMode_(int trigMode){
 }
 void WebServer::dealconn(int fd,sockaddr_in sa){
     auto& subractor=eventpool->nextloop();
-    subractor->pushtask([&subractor,fd,sa](){
+    subractor->pushtask([subractor,fd,sa](){
             subractor->addclient(fd, sa);
     });
    
 //     uint64_t one=1;
 //     write(subractor->getwakefd(),&one,sizeof(one));
-   eventfd_t value = 1;
-    ::eventfd_write(subractor->getwakefd(), value);
+  //  eventfd_t value = 1;
+  //   ::eventfd_write(subractor->getwakefd(), value);
 }
 // void WebServer::AddClient_(int fd, sockaddr_in addr){//epoll，user的http，timer，log
 //         assert(fd>0);

@@ -1,6 +1,7 @@
 #include "eventloopthread.h"
 #include "eventloop.h"
 #include <mutex>
+#include <string>
 #include <thread>
 
 eventloopthread::eventloopthread(int timeoutms,int port,int event):timeoutMs(timeoutms),port(port),event(event){}

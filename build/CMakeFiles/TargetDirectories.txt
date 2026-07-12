@@ -1,3 +1,0 @@
-/home/qiu/Tinyweberever/build/CMakeFiles/Tinywebserver.dir
-/home/qiu/Tinyweberever/build/CMakeFiles/edit_cache.dir
-/home/qiu/Tinyweberever/build/CMakeFiles/rebuild_cache.dir

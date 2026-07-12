@@ -101,3 +101,5 @@ eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
 eventfd——t value
 eventfd_read、eventfd_write
 只是对read和write的封装
+
+blockdeque的内部有了cv和mutex，因此在sqlpool中其实不用semid和锁

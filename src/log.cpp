@@ -6,6 +6,7 @@ Log::Log(){
     deque_ = nullptr;
     toDay_ = 0;
     fp_ = nullptr;
+   // isOpen_=true;
 }
  Log::~Log(){
     if(writeThread_&&writeThread_->joinable()){

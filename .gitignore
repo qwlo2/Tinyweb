@@ -1,0 +1,31 @@
+# Build output
+/build/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.so
+*.d
+
+# Runtime and test output
+*.log
+reg_login_failures.csv
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Editor metadata
+.idea/
+*.swp
+*~

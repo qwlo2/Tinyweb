@@ -1,9 +1,11 @@
 #include "acceptor.h"
 #include "epoll.h"
 #include "eventloop.h"
+#include "eventLoopPool.h"
 #include "heaptimer.h"
 #include "httpconn.h"
 #include "log.h"
+#include "threadpool.h"
 
 #include <asm-generic/errno.h>
 #include <cerrno>
@@ -97,12 +99,20 @@ void eventloop::push_and_do_task(const std::function<void()> &cb){
      }else {
         pushtask(cb);
      }
+
 }
 void eventloop::pushtask(const std::function<void()>& cb){
     //好像回退化成拷贝
     //这个
+  {
     std::unique_lock<std::mutex> lock(mutex_);
-     pendindtask.emplace_back(cb);
+    pendindtask.emplace_back(cb);
+  }
+
+      if (wakeupfd >= 0) {
+        eventfd_t value = 1;
+        eventfd_write(wakeupfd, value);
+    }
 }
 void eventloop::Do_task(){
     std::vector<std::function<void()>> func{};
@@ -120,78 +130,142 @@ void eventloop::Do_task(){
 void eventloop::closeconn(int fd){
       ep->DleFd(fd);
      if (httpcoon.find(fd)!=httpcoon.end()) {
-            httpcoon[fd].Close();
+            httpcoon[fd]->Close();
      }
      
 }
 void eventloop::DealRead(int fd){
-     ExtentTime_(&httpcoon[fd]);
+     ExtentTime_(httpcoon[fd].get());
      //先不加入线程池
-     push_and_do_task(std::bind(&eventloop::Onread, this,fd));
+     //push_and_do_task(std::bind(&eventloop::Onread, this,fd));
+    
+     ThreadPool::init_io()->AddTask([this, fd,conn = httpcoon[fd]]() {
+       int saveerrno = 0;
+       int ret = conn->read(&saveerrno);
+       if (ret < 0 && (saveerrno == EAGAIN || saveerrno == EWOULDBLOCK)) {
+         // 当返回只为-1，即第一次就是-1，重新读
+             push_and_do_task([this, fd]() {
+               ep->ModFd(fd, EPOLLIN | event); 
+            });
+        
+      }else if (ret > 0) {
+        //解析http报文
+        auto sta=conn->process();
+        //分别是incompete，needauth，compete
+          if (sta==ProcessResult::NeedRead) {
+              push_and_do_task([this, fd]() { 
+                ep->ModFd(fd, EPOLLIN | event);
+               });
+              
+       } else if (sta==ProcessResult::NeedAuth) {
+              ThreadPool::init_Argon2id()->AddTask([this,fd,conn](){
+                        conn->processAuth();
+                        push_and_do_task([this, fd]() { 
+                          ep->ModFd(fd, EPOLLOUT | event);
+                     });
+              });
+             
+       }else {
+        push_and_do_task([this, fd]() { 
+               ep->ModFd(fd, EPOLLOUT | event); 
+        });
+         return ;
+       }
+     }else {
+      push_and_do_task([this, fd] { closeconn(fd); });
+     }
+     });
 }
-void eventloop::Onread(int fd){
-    int saveerrno=0;
-    int ret=httpcoon[fd].read(&saveerrno);
-    if (ret<0&&(saveerrno==EAGAIN||saveerrno==EWOULDBLOCK)) {
-            //当返回只为-1，即第一次就是-1，重新读
-            // if (httpcoon[fd]->IsKeepAlive()) {
-               ep->ModFd(fd,EPOLLIN|event);
-               return;
-            //}
-    }else if (ret!=0) {
-    //读完解析
-       process(fd);
-       return;
-    }
-    //读完==0且不是长连接
-  closeconn(fd);
-}
+// void eventloop::Onread(int fd){
+//     int saveerrno=0;
+//     int ret=httpcoon[fd].read(&saveerrno);
+//     if (ret<0&&(saveerrno==EAGAIN||saveerrno==EWOULDBLOCK)) {
+//             //当返回只为-1，即第一次就是-1，重新读
+//             // if (httpcoon[fd]->IsKeepAlive()) {
+//                ep->ModFd(fd,EPOLLIN|event);
+//                return;
+//             //}
+//     }else if (ret!=0) {
+//     //读完解析
+//        process(fd);
+//        return;
+//     }
+//     //读完==0且不是长连接
+//   closeconn(fd);
+// }
 
 void eventloop::DealWrite(int fd){
-   ExtentTime_(&httpcoon[fd]);
-   push_and_do_task(std::bind(&eventloop::Onwrite, this,fd));
+   ExtentTime_(httpcoon[fd].get());
+   Onwrite(fd);
 }
 void eventloop::Onwrite(int fd){
-    int saveerrno=0;
     //写完，未写完，没写三种情况
     //
-    int ret=httpcoon[fd].write(&saveerrno);
-     if (httpcoon[fd].ToWriteBytes()==0) {
+    ThreadPool::init_io()->AddTask([this,fd,conn=httpcoon[fd]](){
+         int saveerrno=0;
+         int ret=conn->write(&saveerrno);
+     if (conn->ToWriteBytes()==0) {
             //当返回只为0，写完
-            if (httpcoon[fd].IsKeepAlive()) {
-              process(fd);
-              return;
+            if (conn->IsKeepAlive()) {
+              ThreadPool::init_io()->AddTask([this, fd,conn]() {
+                  auto sta=conn->process();
+                  if (sta==ProcessResult::NeedRead ) {
+                          push_and_do_task([this,fd](){
+                              ep->ModFd(fd,EPOLLIN|event);
+                          });
+                     
+                  }else if (sta==ProcessResult::NeedAuth) {
+                     ThreadPool::init_Argon2id()->AddTask([this,fd,conn](){
+                         conn->processAuth();
+                          push_and_do_task([this,fd](){
+                          ep->ModFd(fd,EPOLLOUT|event);
+                      });                
+                     });
+                    
+                  } else {                    
+                         push_and_do_task([this,fd](){
+                              ep->ModFd(fd,EPOLLOUT|event);
+                          });            
+                    
+                  }
+              });
+              return ;
             }
     }else if (ret<0&&(saveerrno==EAGAIN||saveerrno==EWOULDBLOCK)) {
         //没写完
-         ep->ModFd(fd,EPOLLOUT|event);
+         push_and_do_task([this,fd](){
+              ep->ModFd(fd,EPOLLOUT|event);
+        });    
          return;
     } 
     //ret<0，出错
-  closeconn(fd);
+     push_and_do_task([this,fd](){
+             closeconn(fd);
+        });    
+    });
 }
-void eventloop::process(int fd){
-     //badqust,toolarge,compete都是true，要返回响应报文
-     //incompete才false
-      if (httpcoon[fd].process()) {
-          //写完只用才链接才保存
-          //这里不push，因为raad，write，都是pending里面的
-             ep->ModFd(fd,EPOLLOUT|event);
-             return;
-      }else {
-        // if (httpcoon[fd]->IsKeepAlive()) {
-        //请求体还没有解析，不知道keepalive
+// void eventloop::process(int fd){
+//      //badqust,toolarge,compete都是true，要返回响应报文
+//      //incompete才false
+//       if (httpcoon[fd].process()) {
+//           //写完只用才链接才保存
+//           //这里不push，因为raad，write，都是pending里面的
+//              ep->ModFd(fd,EPOLLOUT|event);
+//              return;
+//       }else {
+//         // if (httpcoon[fd]->IsKeepAlive()) {
+//         //请求体还没有解析，不知道keepalive
 
-        //onread后，读完分为读与未读，未读无条件epollin，读了则precess进行解析
-        //解析时，incompete则epollin，其他则write
-        //write分未写完，没写完，没写，写完判断是否未长连接，是则process，减少一次wait
-        //为写完则epollput，其他则close
-                 ep->ModFd(fd,EPOLLIN|event);
-                 return;
-        // }
-      }
-      closeconn(fd);
-}
+//         //onread后，读完分为读与未读，未读无条件epollin，读了则precess进行解析
+//         //解析时，incompete则epollin，其他则write
+//         //write分未写完，没写完，没写，写完判断是否未长连接，是则process，减少一次wait
+//         //为写完则epollput，其他则close
+//                  ep->ModFd(fd,EPOLLIN|event);
+//                  return;
+//         // }
+//       }
+//      // closeconn(fd);
+// }
 int eventloop::SetFdNonblock(int fd) {
      return  fcntl(fd,F_SETFL,fcntl(fd, F_GETFL)|O_NONBLOCK);
 }
@@ -224,13 +298,19 @@ bool eventloop::initsock(){
          assert(fd>0);
         // httpcoon[fd]=std::make_shared<HttpConn>();
         //改为httpconn后应该连接只需要清理资源，但不用重复创建资源
-        httpcoon[fd].init(fd,addr);//fd复用
+        if (httpcoon.contains(fd)) {
+          httpcoon[fd]->init(fd,addr);//fd复用
+        }else {
+          auto conn = std::make_shared<HttpConn>();
+          conn->init(fd, addr);
+          httpcoon[fd] = std::move(conn);
+        }
         if(HttpConn::userCount>MAX_FD){
                 int ret=send(fd,"Server busy!",sizeof("Server busy!"),0);
                if(ret<0){
                 LOG_WARN("error to client[%d] error!", fd);
               }
-                httpcoon[fd].Close();
+                httpcoon[fd]->Close();
                 //SendError_(fd, "Server busy!");
                   LOG_WARN("Client is full");
                   return;
@@ -243,9 +323,9 @@ bool eventloop::initsock(){
         }
         SetFdNonblock(fd);
        if ( !ep->AddFd(fd,EPOLLIN|event)) {
-             httpcoon[fd].Close();
+             httpcoon[fd]->Close();
        }
-        LOG_INFO("Client[%d] in",httpcoon[fd].GetFd());
+        LOG_INFO("Client[%d] in",httpcoon[fd]->GetFd());
  }
  void eventloop::setdealconn(const std::function<void(int,sockaddr_in)>& cb){
     ac->setnewconnectioncallback(cb);

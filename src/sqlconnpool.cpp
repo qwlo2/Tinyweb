@@ -1,5 +1,6 @@
 #include "sqlconnpool.h"
 #include "log.h"
+#include <semaphore.h>
  SqlConnPool::SqlConnPool(){
     useCount_=0;
     freeCount_=0;
@@ -14,34 +15,38 @@
  }
 
  std::shared_ptr<MYSQL>SqlConnPool::GetConn(){
+           if (!is_inited) {
+               return nullptr;
+           }
             std::shared_ptr<MYSQL> sql_conn;
             MYSQL* sql=nullptr;
 
+                sem_wait(&semId_);
             std::lock_guard<std::mutex> lock(mutex_);
-            if(connQue_.empty()){
-                LOG_WARN("SqlConnPool busy!")
-                return nullptr;
-            }
-            sem_wait(&semId_);
+           
+
             sql=connQue_.front();
             connQue_.pop();
-             sql_conn.reset(sql,[this](MYSQL* conn){
-                std::lock_guard<std::mutex> lock(mutex_); 
-                    connQue_.push(conn);
-                    sem_post(&semId_);
+            ++useCount_;
+           --freeCount_;
+             sql_conn.reset(sql,[this](MYSQL* sql){
+                  FreeConn(sql);
              });
             return sql_conn;
     }
     void SqlConnPool::FreeConn(MYSQL * conn){
            std::lock_guard<std::mutex> lock(mutex_);
            connQue_.push(conn);
+           --useCount_;
+           ++freeCount_;
            sem_post(&semId_);
     }
     int SqlConnPool::GetFreeConnCount(){
         std::lock_guard<std::mutex>  lock(mutex_);
-         return  connQue_.size();
+         return  freeCount_;
     }
     void SqlConnPool::ClosePool(){
+       
         std::lock_guard<std::mutex> lock(mutex_);
         while (!connQue_.empty()) {
             auto item=connQue_.front();
@@ -49,11 +54,14 @@
             mysql_close(item);
         }
         mysql_library_end();
+        sem_destroy(&semId_);
     }
     void SqlConnPool::Init(const char* host, int port,
               const char* user,const char* pwd, 
               const char* dbName, int connSize){
               assert(connSize > 0);
+              MAX_CONN_=connSize;
+            sem_init(&semId_,0,MAX_CONN_);
              for(int i=0;i<connSize;i++)
              {
                   MYSQL* sql=nullptr;//null分配新地址，mysql*重置资源，未初始化可能会报错（有无全访问地址）
@@ -62,20 +70,21 @@
                   sql=mysql_init(sql);
                   if(!sql){
                     LOG_ERROR("mysql init error");
-                    assert(sql);
+                   // ClosePool();
+                      return;
                   }
                   sql=mysql_real_connect(sql, host, user, pwd,dbName,port,nullptr,0);
                   if(!sql){
                     LOG_ERROR("mysql connect error");
-                
+                   // ClosePool();
+                    return;
                   }
                  // std::lock_guard<std::mutex> lock(mutex_);
                   connQue_.push(sql);
              }
-
+            is_inited=true;
               LOG_INFO("Connecting MySQL: host=%s, port=%d, user=%s, db=%s", host, port, user, dbName);
-            MAX_CONN_=connSize;
-            sem_init(&semId_,0,MAX_CONN_);
+            
             //0代表线程间使用，1代表进程间使用
             //MAX_CONN_代表
             // 信号量值大于 0：减 1，然后继续执行；

@@ -19,6 +19,7 @@ public:
         Incomplete,//没有完全读完
         BadRequest,
         PayloadTooLarge,
+        //NeedAuth
     };
 
     enum HTTP_CODE {
@@ -47,6 +48,13 @@ public:
 
     bool IsKeepAlive() const;
 
+    void DoAuth(){
+         ParsePost_();
+    }
+    bool IsAuthRequest() const {
+    return method_ == "POST" &&
+           (path_ == "/login.html" || path_ == "/register.html");
+}
     /*
     todo
     void HttpConn::ParseFormData() {}
@@ -59,10 +67,14 @@ private:
     void ParseBody_(const std::string& line);//体
 
     void ParsePath_();
+
+
     void ParsePost_();//只有post才有体
+    
     void ParseFromUrlencoded_();//解析体中被加密的密码等
     //通过sql验证密码等
-    static bool UserVerify(const std::string& name, const std::string& pwd, bool isLogin);
+    static bool UserVerify_MYSQL(const std::string& name, const std::string& pwd, bool isLogin);
+   static bool UserVerify_LSM( const std::string& name, const std::string& pwd,const char * ip,int port, bool isLogin);
 
     static std::string Trim_(const std::string& str);
     static std::string ToLower_(std::string str);
@@ -77,12 +89,13 @@ private:
     std::string method_, path_, version_, body_;
     std::unordered_map<std::string, std::string> header_;
     std::unordered_map<std::string, std::string> post_;
+   
 
     size_t contentLength_;
     size_t headerBytes_;
     size_t headerCount_;
     bool hasContentLength_;
-
+    
     static const std::unordered_set<std::string> DEFAULT_HTML;//set只有key，用来判断是否存在
     static const std::unordered_map<std::string, int> DEFAULT_HTML_TAG;//根据html找对应的业务
     static int ConverHex(char ch);
