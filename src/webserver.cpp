@@ -20,13 +20,14 @@
 WebServer::WebServer(
         int port, int trigMode, int timeoutMS, int nums,bool OptLinger,const char* ip_,
         int sqlPort, const char* sqlUser, const  char* sqlPwd, 
-        const char* dbName, const char* db_,int connPoolNum, int threadNum,
+        const char* dbName, const char* db_,int connPoolNum, int threadioNum_,int threadarNum_,
         bool openLog, int logLevel, int logQueSize):port_(port), openLinger_(OptLinger), timeoutMS_(timeoutMS), isClose_(false),
             timer_(std::make_unique<HeapTimer> ()),
             epoller_(std::make_unique<Epoller>()){
 
             db=std::move(std::move(db_));
-            threadnums=threadNum;
+            threadionums=threadioNum_;
+            threadarnums=threadarNum_;
             port=sqlPort;
             ip=ip_;
           // 使用绝对路径，避免工作目录的影响
@@ -71,7 +72,7 @@ WebServer::WebServer(
                             (connEvent_ & EPOLLET ? "ET": "LT"));
             LOG_INFO("LogSys level: %d", logLevel);
             LOG_INFO("srcDir: %s", HttpConn::srcDir);
-            LOG_INFO("SqlConnPool num: %d, ThreadPool num: %d", connPoolNum, threadNum);
+            LOG_INFO("SqlConnPool num: %d, ThreadioPool num: %d,ThreadarPool num: %d", connPoolNum, threadioNum_,threadarNum_);
           }
         }
   //linger是残留的意思，当tcp关闭，open这个，会在一段时间后再关闭（发送数据）

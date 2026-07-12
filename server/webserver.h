@@ -19,12 +19,13 @@ public:
 WebServer(
         int port, int trigMode, int timeoutMS,int nums ,bool OptLinger, const char* ip,
         int sqlPort, const char* sqlUser, const  char* sqlPwd, 
-        const char* dbName,const char* db, int connPoolNum, int threadNum,
+        const char* dbName,const char* db, int connPoolNum, int threadioNum,int threadarNum,
         bool openLog, int logLevel, int logQueSize);
     ~WebServer();
     void Start();
    inline static std::string db{};
-   inline static int  threadnums{0};
+   inline static int  threadionums{0};
+  inline static int  threadarnums{0};
    inline static int port{0};
    inline static const char* ip{""};
   // int webserver::db{};
