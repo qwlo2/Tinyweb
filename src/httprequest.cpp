@@ -371,7 +371,7 @@ void HttpRequest::ParsePost_(){
               bool islogin=(tag==1);
               if(WebServer::db=="MYSQL"&&UserVerify_MYSQL(post_["username"],post_["password"],islogin)){
                      path_="/welcome.html";
-              }else if (WebServer::db=="LSM"&&UserVerify_LSM(post_["username"],post_["password"],"127.0.0.1",6380, islogin)) {
+              }else if (WebServer::db=="LSM"&&UserVerify_LSM(post_["username"],post_["password"],WebServer::ip,WebServer::port, islogin)) {
                     path_="/welcome.html";
               }
               else {

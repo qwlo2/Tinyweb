@@ -18,7 +18,7 @@
 
 
 WebServer::WebServer(
-        int port, int trigMode, int timeoutMS, int nums,bool OptLinger, 
+        int port, int trigMode, int timeoutMS, int nums,bool OptLinger,const char* ip_,
         int sqlPort, const char* sqlUser, const  char* sqlPwd, 
         const char* dbName, const char* db_,int connPoolNum, int threadNum,
         bool openLog, int logLevel, int logQueSize):port_(port), openLinger_(OptLinger), timeoutMS_(timeoutMS), isClose_(false),
@@ -27,6 +27,8 @@ WebServer::WebServer(
 
             db=std::move(std::move(db_));
             threadnums=threadNum;
+            port=sqlPort;
+            ip=ip_;
           // 使用绝对路径，避免工作目录的影响
           srcDir_ = (char*)malloc(256);
           strcpy(srcDir_, "/home/qiu/Tinyweberever/resources");
