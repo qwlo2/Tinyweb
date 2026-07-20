@@ -1,11 +1,10 @@
 #include "httpresponse.h"
 #include "log.h"
-#include <fcntl.h>
+
+#include <cassert>
 #include <string>
-#include <unistd.h>      // close
-#include <sys/stat.h>    // stat
-#include <sys/mman.h>    // mmap, munmap
 #include <unordered_map>
+#include <utility>
 
 const std::unordered_map<std::string, std::string> HttpResponse::SUFFIX_TYPE = {
     { ".html",  "text/html" },
@@ -41,65 +40,75 @@ const std::unordered_map<int,std::string> HttpResponse::CODE_PATH{
      {400,"/400.html"},
      {413,"/400.html"}
 };
-HttpResponse::HttpResponse():code_(-1),isKeepAlive_(false),mmFile_(nullptr){
-     path_.clear();
-     srcDir_.clear();
-     mmFileStat_ = { 0 };
+HttpResponse::HttpResponse()
+    : code_(-1), isKeepAlive_(false), file_(nullptr) {
+    path_.clear();
+    srcDir_.clear();
 }
-HttpResponse::~HttpResponse(){
+
+HttpResponse::~HttpResponse() = default;
+
+void HttpResponse::Init(const std::string& srcDir, std::string& path,
+                        bool isKeepAlive, int code) {
+    assert(srcDir != "");
     UnmapFile();
+    isKeepAlive_ = isKeepAlive;
+    code_ = code;
+    srcDir_ = srcDir;
+    path_ = path;
 }
-void HttpResponse::Init(const std::string& srcDir, std::string& path, bool isKeepAlive, int code){
-       assert(srcDir != "");
-       if(mmFile_) { 
-        UnmapFile(); 
-    }
-          isKeepAlive_=isKeepAlive;
-          code_=code;
-         srcDir_=srcDir;
-         path_=path;
-         mmFile_=nullptr;
-         mmFileStat_ = { 0 };
+
+void HttpResponse::UnmapFile() {
+    file_.reset();
 }
-void HttpResponse::UnmapFile(){
-    if(mmFile_){
-        munmap(mmFile_,mmFileStat_.st_size);
-        mmFile_=nullptr;
-    }
+
+char* HttpResponse::getFile() {
+    return file_
+        ? const_cast<char*>(file_->Data())
+        : nullptr;
 }
-char* HttpResponse::getFile(){
-    return mmFile_;
+
+size_t HttpResponse::getFileLen() const {
+    return file_ ? file_->Size() : 0;
 }
-size_t HttpResponse::getFileLen() const{
-    return mmFileStat_.st_size;
-}
-void HttpResponse::MakeResponse(Buffer& buff){
-    //只会传400，413，200
-    if(code_>=400){
+
+void HttpResponse::MakeResponse(Buffer& buff) {
+    StaticFileCache& cache = StaticFileCache::Instance();
+
+    if (code_ < 400) {
+        StaticFileLookup result = cache.Get(srcDir_ + path_);
+        if (result) {
+            file_ = std::move(result.file);
+            code_ = 200;
+        } else {
+            code_ = result.status == StaticFileStatus::Forbidden
+                ? 403
+                : 404;
+            ErrorHtml_();
+        }
+    } else {
         ErrorHtml_();
     }
-    else if(stat((srcDir_+path_).data(),&mmFileStat_)||S_ISDIR(mmFileStat_.st_mode)){
-        //stat返回0，失败<0（errno来获取错误），S_ISDI是否为目录，st_mode有文件类型和权限
-       code_=404;
-       ErrorHtml_();
+
+    if (!file_) {
+        StaticFileLookup result = cache.Get(srcDir_ + path_);
+        if (result) {
+            file_ = std::move(result.file);
+        }
     }
-    else if(!(mmFileStat_.st_mode&S_IRUSR)){//判断文件是否可读 IRUSR 文件所有者是否有读权限 S_IROTH 其他用户（非所有者 / 非所属组）是否有读权限
-        code_=403;
-        ErrorHtml_();
-    }
-    else {
-       code_=200;
-    }
+
     AddStateLine_(buff);
     AddHeader_(buff);
     AddContent_(buff);
 }
-void HttpResponse::ErrorHtml_(){
-    if(CODE_PATH.count(code_)){
-          path_=CODE_PATH.find(code_)->second;
-          stat((srcDir_+path_).data(),&mmFileStat_);//stat获取文件/目录的元数据
+
+void HttpResponse::ErrorHtml_() {
+    auto it = CODE_PATH.find(code_);
+    if (it != CODE_PATH.end()) {
+        path_ = it->second;
     }
 }
+
 void HttpResponse::AddStateLine_(Buffer &buff){
     std::string statu_;
     if(CODE_STATUS.count(code_)){
@@ -123,21 +132,12 @@ void HttpResponse::AddHeader_(Buffer &buff){
     buff.Append("Content-type:"+GetFileType_()+"\r\n");
 }
 void HttpResponse::AddContent_(Buffer &buff){//获取file.size
-     int srcfd=open((srcDir_+path_).data(),O_RDONLY);
-     if(srcfd<0){
+     if(!file_){
         ErrorContent(buff,"File NotFound");
         return;
      }
      LOG_DEBUG("File Name:%s",(srcDir_+path_).data());
-     void* ptr=mmap(0,mmFileStat_.st_size,PROT_READ,MAP_PRIVATE,srcfd,0);
-     if(ptr==MAP_FAILED){//MAP_FAILED=(void*)-1
-        close(srcfd);
-        ErrorContent(buff,"File NotFound");
-        return;
-     }
-     mmFile_=(char*)ptr;
-     close(srcfd);
-     buff.Append("Content-Length:"+std::to_string(mmFileStat_.st_size)+"\r\n\r\n");
+     buff.Append("Content-Length:"+std::to_string(file_->Size())+"\r\n\r\n");
 }
 void HttpResponse::ErrorContent(Buffer& buff, std::string message){
     std::string body,statu_;

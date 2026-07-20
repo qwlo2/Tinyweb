@@ -5,6 +5,7 @@
 
 #include "lsmconnpool.h"
 #include "sqlconnpool.h"
+#include "staticfilecache.h"
 #include "threadpool.h"
 #include <arpa/inet.h>
 
@@ -15,6 +16,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <vector>
 
 
 WebServer::WebServer(
@@ -28,6 +30,7 @@ WebServer::WebServer(
             db=std::move(std::move(db_));
             threadionums=threadioNum_;
             threadarnums=threadarNum_;
+            threadDbnums=connPoolNum;
             sqlport=sqlPort;
             ip=ip_;
           // 使用绝对路径，避免工作目录的影响
@@ -35,6 +38,36 @@ WebServer::WebServer(
           strcpy(srcDir_, "/home/qiu/Tinyweberever/resources");
           HttpConn::userCount=0;
           HttpConn::srcDir=srcDir_;
+
+          static const std::vector<std::string> hotStaticFiles {
+              "/index.html",
+              "/login.html",
+              "/register.html",
+              "/welcome.html",
+              "/picture.html",
+              "/video.html",
+              "/error.html",
+              "/400.html",
+              "/403.html",
+              "/404.html",
+              "/css/bootstrap.min.css",
+              "/css/animate.css",
+              "/css/magnific-popup.css",
+              "/css/font-awesome.min.css",
+              "/css/style.css",
+              "/js/jquery.js",
+              "/js/bootstrap.min.js",
+              "/js/smoothscroll.js",
+              "/js/jquery.magnific-popup.min.js",
+              "/js/magnific-popup-options.js",
+              "/js/wow.min.js",
+              "/js/custom.js",
+              "/images/favicon.ico",
+              "/images/profile-image.my.jpeg",
+              "/fonts/fontawesome-webfont.woff2"
+          };
+          StaticFileCache::Instance().Preload(srcDir_, hotStaticFiles);
+
           if(openLog) {
              Log::Instance()->init(logLevel, "./log", ".log", logQueSize);
           }
@@ -81,6 +114,7 @@ WebServer::WebServer(
  WebServer::~WebServer(){
         isClose_=true;
         //close(listenFd_);
+        ThreadPool::init_Db()->stop();
         ThreadPool::init_Argon2id()->stop();
         ThreadPool::init_io()->stop();
         loop->stop();

@@ -29,3 +29,6 @@ __pycache__/
 .idea/
 *.swp
 *~
+http/staticfilecache.h
+.gitignore
+build-release/Tinywebserver

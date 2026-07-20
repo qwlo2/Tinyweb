@@ -122,7 +122,7 @@ acceptor::acceptor(int port_):port(port_){
         close(listenfd);
         return  -1;
      }
-     ret=::listen(listenfd,1024);
+     ret=::listen(listenfd,4096);
      if(ret < 0) {
         LOG_ERROR("Listen port:%d error!", port);
         close(listenfd);

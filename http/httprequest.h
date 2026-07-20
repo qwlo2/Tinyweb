@@ -32,7 +32,13 @@ public:
         INTERNAL_ERROR,
         CLOSED_CONNECTION,
     };
-
+    struct Authuser{
+        std::string username;
+        std::string password;
+        std::string ar_hash_pwd;
+        bool islogin;
+    };
+    Authuser authuser{};
     HttpRequest() { Init(); }
     ~HttpRequest() = default;
 
@@ -51,6 +57,16 @@ public:
     void DoAuth(){
          ParsePost_();
     }
+ //通过sql验证密码等
+    bool SqlQuary();
+     //加密与验证
+    bool ar_hash_and_versity();
+    void is_success(){
+       
+           path_="/welcome.html";
+         
+    }
+
     bool IsAuthRequest() const {
     return method_ == "POST" &&
            (path_ == "/login.html" || path_ == "/register.html");
@@ -72,7 +88,11 @@ private:
     void ParsePost_();//只有post才有体
     
     void ParseFromUrlencoded_();//解析体中被加密的密码等
+
     //通过sql验证密码等
+    bool quary_mysql();
+    bool quary_lsm();
+   
     static bool UserVerify_MYSQL(const std::string& name, const std::string& pwd, bool isLogin);
    static bool UserVerify_LSM( const std::string& name, const std::string& pwd,const char * ip,int port, bool isLogin);
 

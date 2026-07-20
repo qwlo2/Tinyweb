@@ -1,7 +1,9 @@
 #pragma  once
 #include "buffer.h"
+#include "staticfilecache.h"
+#include <memory>
 #include <unordered_map>
-#include <fcntl.h>       // open
+
 class HttpResponse {
 public:
     HttpResponse();
@@ -29,8 +31,7 @@ private:
     std::string path_;//code_对应的html
     std::string srcDir_;
     
-    char* mmFile_; 
-    struct stat mmFileStat_;
+    std::shared_ptr<const MappedFile> file_;
 
     static const std::unordered_map<std::string, std::string> SUFFIX_TYPE;
     static const std::unordered_map<int, std::string> CODE_STATUS;

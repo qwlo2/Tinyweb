@@ -31,12 +31,13 @@ HttpConn::~HttpConn(){
 //因为要fd复用，因此单独一个init函数
 void HttpConn::init(int sockFd, const sockaddr_in& addr){
     assert(sockFd>0);
+    std::lock_guard<std::mutex> lock(io_mtx_);
     userCount++;
        fd_=sockFd;
        addr_=addr;
        readBuff_.RetrieveAll();
        writeBuff_.RetrieveAll();
-       response_.UnmapFile();
+       //response_.UnmapFile();
        request_.Init();
        keepAlive_=false;
        iovCnt_=0;
@@ -48,13 +49,22 @@ void HttpConn::init(int sockFd, const sockaddr_in& addr){
 
 
 void HttpConn::Close(){
-    if(isClose_==false){
+    int oldFd = -1;
+    {
+        std::lock_guard<std::mutex> lock(io_mtx_);
+        if(isClose_){
+            return;
+        }
         response_.UnmapFile();
         isClose_=true;
         userCount--;
-        ::close(fd_);
-         LOG_INFO("Client[%d] quit!",GetFd());
-        LOG_INFO("Client[%d](%s:%d) quit, UserCount:%d", fd_, GetIP(), GetPort(), (int)userCount);
+        oldFd=fd_;
+        fd_=-1;
+    }
+    if(oldFd>=0){
+        ::close(oldFd);
+        LOG_INFO("Client[%d] quit!",oldFd);
+        LOG_INFO("Client[%d](%s:%d) quit, UserCount:%d", oldFd, GetIP(), GetPort(), (int)userCount);
     }
 }
 
@@ -83,21 +93,24 @@ sockaddr_in HttpConn::GetAddr() const{
 // bool HttpConn::prase(){
 //      return request_.parse(readBuff_);
 // }
-ProcessResult HttpConn::process(){
+void HttpConn::process(){
      
      auto result=request_.parse(readBuff_);
      //不完整
      if(result==HttpRequest::ParseResult::Incomplete){
-        return  ProcessResult::NeedRead;
+        sta= ProcessResult::NeedRead;
+        return;
      }
      //完整但是要prasepost
      if (result==HttpRequest::ParseResult::Complete&&request_.IsAuthRequest()) {
-             return ProcessResult::NeedAuth;
+           sta= ProcessResult::NeedAuth;
+           return;
      }
       makeResponse(result);
-    return ProcessResult::ReadyWrite;
+   sta= ProcessResult::ReadyWrite;
 }
 void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
+    std::lock_guard<std::mutex> lock(io_mtx_);
       std::string path;
      int code=200;
      keepAlive_=false;
@@ -136,6 +149,11 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
      LOG_DEBUG("filesize:%zu, iovCnt:%d, toWrite:%d", response_.getFileLen(), iovCnt_, ToWriteBytes());
 }
 ssize_t HttpConn::read(int* saveErrno){
+    std::lock_guard<std::mutex> lock(io_mtx_);
+    if(isClose_||fd_<0){
+        *saveErrno=ECANCELED;
+        return -1;
+    }
     ssize_t len=0;
     ssize_t total=0;
     do{
@@ -159,6 +177,11 @@ ssize_t HttpConn::read(int* saveErrno){
 //将iov的0的writerbuffer和1的file
 //通过iov写入fd
 ssize_t HttpConn::write(int* saveErrno){
+     std::lock_guard<std::mutex> lock(io_mtx_);
+     if(isClose_||fd_<0){
+        *saveErrno=ECANCELED;
+        return -1;
+     }
      ssize_t len=-1;
      do {
         len=writev(fd_, iov_,iovCnt_);
@@ -169,10 +192,8 @@ ssize_t HttpConn::write(int* saveErrno){
         if(len==0){
             break;
         }
-        if(ToWriteBytes()==0){
-            break;
-        }
-        else if(static_cast<size_t>(len)>iov_[0].iov_len){
+       
+        if(static_cast<size_t>(len)>iov_[0].iov_len){
             //专用于字节操作
               size_t write_len = len - iov_[0].iov_len;
               iov_[1].iov_base=(uint8_t*)iov_[1].iov_base+write_len;//uint8_t等价于 unsigned char，固定占 1 字节
@@ -185,6 +206,9 @@ ssize_t HttpConn::write(int* saveErrno){
            iov_[0].iov_base=(uint8_t*)iov_[0].iov_base+retrieve_len;
            iov_[0].iov_len=iov_[0].iov_len-retrieve_len;
            writeBuff_.Retrieve(retrieve_len);
+        }
+         if(ToWriteBytes()==0){
+            break;
         }
      }while (isET||ToWriteBytes()>10240);
      return len;

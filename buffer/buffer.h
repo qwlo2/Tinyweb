@@ -42,6 +42,6 @@ class Buffer{
     void MakeSpace_(size_t len);
 
     std::vector<char> buffer_;
-    std::atomic<std::size_t> readPos_;//标记可读位置
-    std::atomic<std::size_t> writePos_;//标记可写位置
+    std::size_t readPos_;//标记可读位置
+    std::size_t writePos_;//标记可写位置
 };

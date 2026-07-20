@@ -7,7 +7,7 @@
 #include <cassert>
 class Epoller{
      public:
-      Epoller(int maxEvent = 1024);
+      Epoller(int maxEvent = 4096);
       ~Epoller();
 
       bool AddFd(int fd,uint32_t event_);

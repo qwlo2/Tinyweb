@@ -2,6 +2,7 @@
 #include "buffer.h"
 #include "httprequest.h"
 #include "httpresponse.h"
+#include <mutex>
 #include <netinet/in.h>
 enum class ProcessResult {
     NeedRead,
@@ -30,11 +31,30 @@ public:
     
     sockaddr_in GetAddr() const;
     
-    ProcessResult process();
+    void process();
    void processAuth() {
     request_.DoAuth();
     makeResponse(HttpRequest::ParseResult::Complete);
 }
+   //判断是否为post和可解析文本，并初始化name，pwd
+   void preAuth(){
+       request_.DoAuth();
+   }
+   //查询或插入
+    bool SqlQuary(){
+        return request_.SqlQuary();
+    }
+    //加密或验证
+    bool ar_hash_and_versity(){ 
+        return  request_.ar_hash_and_versity();
+       
+    }
+    bool is_login(){
+        return request_.authuser.islogin;
+    }
+     void is_success(){
+        request_.is_success();
+     }
     void makeResponse(HttpRequest::ParseResult  sta);
     int ToWriteBytes() const {
         size_t bytes = 0;
@@ -47,13 +67,14 @@ public:
     bool IsKeepAlive() const {
         return keepAlive_;
     }
-
+   
     static bool isET;
      static const char* srcDir;
     static std::atomic<int> userCount;
-    
+    ProcessResult sta{};
 private:
-   
+    mutable std::mutex io_mtx_;
+
     int fd_;
     struct  sockaddr_in addr_;
 

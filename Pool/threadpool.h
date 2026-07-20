@@ -1,4 +1,5 @@
 #pragma  once
+#include "staticfilecache.h"
 #include "webserver.h"
 #include <atomic>
 #include <condition_variable>
@@ -93,7 +94,7 @@ ThreadPool(ThreadPool&&) = default;
                 std::lock_guard<std::mutex> locker(pool_->mutex_);
                  pool_->Isclose=true;
             }
-          
+          pool_->tasks={};
           pool_->cv.notify_all();
           for(auto& it:threads){
             if (it.joinable()) {
@@ -108,6 +109,10 @@ ThreadPool(ThreadPool&&) = default;
     }
     static ThreadPool* init_io(){
         static  ThreadPool pool(WebServer::threadionums);
+        return  &pool;
+    }
+    static ThreadPool* init_Db(){
+        static  ThreadPool pool(WebServer::threadDbnums);
         return  &pool;
     }
 };

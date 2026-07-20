@@ -127,52 +127,115 @@ void eventloop::Do_task(){
 }
 
 //
+bool eventloop::isCurrentConnection(
+    int fd, const std::shared_ptr<HttpConn>& conn) const {
+    if (!conn) {
+        return false;
+    }
+   //在fd和连接复用时，通过user_count>1判断
+   //这里通过持有的conn和httpcoon是否相同判断
+    auto it = httpcoon.find(fd);
+    return it != httpcoon.end() &&
+           it->second == conn &&
+           conn->GetFd() == fd;
+}
+
 void eventloop::closeconn(int fd){
-      ep->DleFd(fd);
-     if (httpcoon.find(fd)!=httpcoon.end()) {
-            httpcoon[fd]->Close();
+     auto it = httpcoon.find(fd);
+     if (it == httpcoon.end() || !it->second) {
+         return;
      }
-     
+     ep->DleFd(fd);
+     it->second->Close();
 }
 void eventloop::DealRead(int fd){
-     ExtentTime_(httpcoon[fd].get());
+     auto it = httpcoon.find(fd);
+     if (it == httpcoon.end() || !it->second) {
+         return;
+     }
+     std::shared_ptr<HttpConn> conn = it->second;
+     if (!isCurrentConnection(fd, conn)) {
+         return;
+     }
+     ExtentTime_(conn.get());
      //先不加入线程池
      //push_and_do_task(std::bind(&eventloop::Onread, this,fd));
     
-     ThreadPool::init_io()->AddTask([this, fd,conn = httpcoon[fd]]() {
+     ThreadPool::init_io()->AddTask([this, fd, conn]() {
        int saveerrno = 0;
        int ret = conn->read(&saveerrno);
        if (ret < 0 && (saveerrno == EAGAIN || saveerrno == EWOULDBLOCK)) {
          // 当返回只为-1，即第一次就是-1，重新读
-             push_and_do_task([this, fd]() {
+             push_and_do_task([this, fd, conn]() {
+               if (!isCurrentConnection(fd, conn)) {
+                 return;
+               }
                ep->ModFd(fd, EPOLLIN | event); 
             });
         
       }else if (ret > 0) {
         //解析http报文
-        auto sta=conn->process();
+          conn->process();
         //分别是incompete，needauth，compete
-          if (sta==ProcessResult::NeedRead) {
-              push_and_do_task([this, fd]() { 
+          if (conn->sta==ProcessResult::NeedRead) {
+              push_and_do_task([this, fd, conn]() {
+                if (!isCurrentConnection(fd, conn)) {
+                  return;
+                }
                 ep->ModFd(fd, EPOLLIN | event);
                });
               
-       } else if (sta==ProcessResult::NeedAuth) {
-              ThreadPool::init_Argon2id()->AddTask([this,fd,conn](){
-                        conn->processAuth();
-                        push_and_do_task([this, fd]() { 
-                          ep->ModFd(fd, EPOLLOUT | event);
-                     });
-              });
-             
+       } else if (conn->sta==ProcessResult::NeedAuth) {
+              conn->preAuth();
+              if (conn->is_login()) {
+                 //先查后解析arg
+                   ThreadPool::init_Db()->AddTask([this,fd,conn](){
+                          //失败则直接返回发送error.html
+                          if (!conn->SqlQuary()) {
+                               Onwrite(fd,conn);
+                               return ;
+                          }
+                          //成功则直接进行加密/验证
+                          ThreadPool::init_Argon2id()->AddTask(
+                              [this, fd, conn]() {
+                                   if (conn->ar_hash_and_versity()) {
+                                         conn->is_success();
+                                   }
+                                   Onwrite(fd,conn);
+                              });
+                   });
+              }else {
+                 //注册要先arg再查
+                  //失败则直接返回发送error.html
+                 ThreadPool::init_Argon2id()->AddTask([this, fd, conn]() {
+                       if (!conn->ar_hash_and_versity()) {
+                             Onwrite(fd,conn);
+                               return ;
+                         }
+                       ThreadPool::init_Db()->AddTask([this,fd,conn](){
+                                 if (conn->SqlQuary()) {
+                                         conn->is_success();
+                                   }
+                                   Onwrite(fd,conn);
+                       });
+                 });
+
+              }
        }else {
-        push_and_do_task([this, fd]() { 
+        push_and_do_task([this, fd, conn]() {
+               if (!isCurrentConnection(fd, conn)) {
+                 return;
+               }
                ep->ModFd(fd, EPOLLOUT | event); 
         });
          return ;
        }
      }else {
-      push_and_do_task([this, fd] { closeconn(fd); });
+      push_and_do_task([this, fd, conn] {
+        if (isCurrentConnection(fd, conn)) {
+          closeconn(fd);
+        }
+      });
      }
      });
 }
@@ -195,35 +258,84 @@ void eventloop::DealRead(int fd){
 // }
 
 void eventloop::DealWrite(int fd){
-   ExtentTime_(httpcoon[fd].get());
-   Onwrite(fd);
+   auto it = httpcoon.find(fd);
+   if (it == httpcoon.end() || !it->second) {
+       return;
+   }
+   std::shared_ptr<HttpConn> conn = it->second;
+   if (!isCurrentConnection(fd, conn)) {
+       return;
+   }
+   ExtentTime_(conn.get());
+   Onwrite(fd, conn);
 }
-void eventloop::Onwrite(int fd){
+void eventloop::Onwrite(int fd,std::shared_ptr<HttpConn> conn){
     //写完，未写完，没写三种情况
     //
-    ThreadPool::init_io()->AddTask([this,fd,conn=httpcoon[fd]](){
+    push_and_do_task([this, fd, conn]() {
+      if (!isCurrentConnection(fd, conn)) {
+        return;
+      }
+      ThreadPool::init_io()->AddTask([this,fd,conn](){
+      if (conn->sta==ProcessResult::NeedAuth ) {
+          conn->makeResponse(HttpRequest::ParseResult::Complete);
+            conn->sta = ProcessResult::ReadyWrite;
+      }
          int saveerrno=0;
          int ret=conn->write(&saveerrno);
      if (conn->ToWriteBytes()==0) {
             //当返回只为0，写完
             if (conn->IsKeepAlive()) {
               ThreadPool::init_io()->AddTask([this, fd,conn]() {
-                  auto sta=conn->process();
-                  if (sta==ProcessResult::NeedRead ) {
-                          push_and_do_task([this,fd](){
+                 conn->process();
+                  if (conn->sta==ProcessResult::NeedRead ) {
+                          push_and_do_task([this, fd, conn]() {
+                              if (!isCurrentConnection(fd, conn)) {
+                                  return;
+                              }
                               ep->ModFd(fd,EPOLLIN|event);
                           });
                      
-                  }else if (sta==ProcessResult::NeedAuth) {
-                     ThreadPool::init_Argon2id()->AddTask([this,fd,conn](){
-                         conn->processAuth();
-                          push_and_do_task([this,fd](){
-                          ep->ModFd(fd,EPOLLOUT|event);
-                      });                
-                     });
-                    
+                  }else if (conn->sta==ProcessResult::NeedAuth) {
+                    conn->preAuth();
+                    if (conn->is_login()) {
+                      // 先查后解析arg
+                      ThreadPool::init_Db()->AddTask([this, fd, conn]() {
+                        // 失败则直接返回发送error.html
+                        if (!conn->SqlQuary()) {
+                          Onwrite(fd,conn);
+                          return;
+                        }
+                        // 成功则直接进行加密/验证
+                        ThreadPool::init_Argon2id()->AddTask(
+                            [this, fd, conn]() {
+                              if (conn->ar_hash_and_versity()) {
+                                conn->is_success();
+                              }
+                              Onwrite(fd,conn);
+                            });
+                      });
+                    } else {
+                      // 注册要先arg再查
+                      // 失败则直接返回发送error.html
+                      ThreadPool::init_Argon2id()->AddTask([this, fd, conn]() {
+                        if (!conn->ar_hash_and_versity()) {
+                          Onwrite(fd,conn);
+                          return;
+                        }
+                        ThreadPool::init_Db()->AddTask([this, fd, conn]() {
+                          if (conn->SqlQuary()) {
+                            conn->is_success();
+                          }
+                          Onwrite(fd,conn);
+                        });
+                      });
+                    }
                   } else {                    
-                         push_and_do_task([this,fd](){
+                         push_and_do_task([this, fd, conn]() {
+                              if (!isCurrentConnection(fd, conn)) {
+                                  return;
+                              }
                               ep->ModFd(fd,EPOLLOUT|event);
                           });            
                     
@@ -233,16 +345,22 @@ void eventloop::Onwrite(int fd){
             }
     }else if (ret<0&&(saveerrno==EAGAIN||saveerrno==EWOULDBLOCK)) {
         //没写完
-         push_and_do_task([this,fd](){
+         push_and_do_task([this, fd, conn]() {
+              if (!isCurrentConnection(fd, conn)) {
+                  return;
+              }
               ep->ModFd(fd,EPOLLOUT|event);
         });    
          return;
     } 
     //ret<0，出错
-     push_and_do_task([this,fd](){
-             closeconn(fd);
+     push_and_do_task([this, fd, conn]() {
+        if (isCurrentConnection(fd, conn)) {
+          closeconn(fd);
+        }
         });    
     });
+  });
 }
 // void eventloop::process(int fd){
 //      //badqust,toolarge,compete都是true，要返回响应报文
@@ -298,13 +416,21 @@ bool eventloop::initsock(){
          assert(fd>0);
         // httpcoon[fd]=std::make_shared<HttpConn>();
         //改为httpconn后应该连接只需要清理资源，但不用重复创建资源
-        if (httpcoon.contains(fd)) {
-          httpcoon[fd]->init(fd,addr);//fd复用
-        }else {
-          auto conn = std::make_shared<HttpConn>();
-          conn->init(fd, addr);
-          httpcoon[fd] = std::move(conn);
-        }
+         std::shared_ptr<HttpConn> conn;
+
+    auto it = httpcoon.find(fd);
+    //无论时新fd，或者复用，或者旧连接被使用，都删除定时器
+       timer->del_(fd);
+    // map 自己持有一个引用；use_count == 1 说明没有异步任务持有它
+    if (it != httpcoon.end() && it->second.use_count() == 1) {
+        conn = it->second;
+        conn->init(fd, addr);
+    } else {
+        conn = std::make_shared<HttpConn>();
+        conn->init(fd, addr);
+        httpcoon[fd] = conn;
+        //fd第一次被分发或者旧连接被使用
+    }
         if(HttpConn::userCount>MAX_FD){
                 int ret=send(fd,"Server busy!",sizeof("Server busy!"),0);
                if(ret<0){
@@ -317,8 +443,13 @@ bool eventloop::initsock(){
         }//所以临界的删去
         if (timeoutMS>0) {
             //timer_->add(fd,timeoutMS_,std::bind(&WebServer::CloseConn_,this,&httpcoon[fd]));
-           timer->add(fd,timeoutMS,[this,fd](){
-                closeconn(fd);
+           std::weak_ptr<HttpConn> weakConn = conn;
+           timer->add(fd,timeoutMS,[this,fd,weakConn](){
+                auto conn = weakConn.lock();
+                //安全保险加一，在timer->del_(fd)后，这个已经没事了
+                if (conn && isCurrentConnection(fd, conn)) {
+                    closeconn(fd);
+                }
             });
         }
         SetFdNonblock(fd);

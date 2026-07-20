@@ -3,17 +3,9 @@
 #include "epoll.h"
 #include "httpconn.h"
 #include "heaptimer.h"
-#include <atomic>
-#include <mutex>
-#include <functional>
 #include <memory>
-#include <string>
 #include <sys/epoll.h>
-#include <netinet/in.h>
-#include <sys/types.h>
 #include <thread>
-#include <unordered_map>
-#include <vector>
 #include <sys/eventfd.h>
 class eventloop{
      private:
@@ -41,6 +33,7 @@ class eventloop{
       int SetFdNonblock(int fd);
       void SendError_(int fd, const char*info);
       void ExtentTime_(HttpConn* client);
+      bool isCurrentConnection(int fd, const std::shared_ptr<HttpConn>& conn) const;
       public:
     //fd是进程共享，并且可以跨线程addepoll，但是为了不混乱，用queue执行
       eventloop(int timems,int port,int event);
@@ -64,7 +57,7 @@ class eventloop{
       void Onread(int fd);
 
       void DealWrite(int fd);
-      void Onwrite(int fd);
+      void Onwrite(int fd,std::shared_ptr<HttpConn> conn);
       //读写完调用它
       void process(int fd);
 

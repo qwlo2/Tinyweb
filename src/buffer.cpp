@@ -46,7 +46,7 @@ void Buffer::RetrieveUntil(const char* end){
 } 
 //读取all，或读到str
 void Buffer::RetrieveAll(){
-    bzero(buffer_.data(),buffer_.size());
+   // bzero(buffer_.data(),buffer_.size());
     readPos_=0;
     writePos_=0;
 }

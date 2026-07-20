@@ -26,6 +26,7 @@ WebServer(
    inline static std::string db{};
    inline static int  threadionums{0};
   inline static int  threadarnums{0};
+  inline static int threadDbnums{0};
    inline static int sqlport{0};
    inline static const char* ip{""};
   // int webserver::db{};

@@ -98,6 +98,7 @@ void HttpRequest::Init(){
     body_.clear();
     header_.clear();
     post_.clear();
+    authuser = Authuser{};
     contentLength_=0;
     headerBytes_=0;
     headerCount_=0;
@@ -230,31 +231,64 @@ std::string HttpRequest::GetPost(const char* key) const{
 
     
 bool HttpRequest::IsKeepAlive() const{
-    for(const auto& item:header_){
-        if(ToLower_(item.first)=="connection"){
-            return ToLower_(Trim_(item.second))=="keep-alive"&&version_=="1.1";
+     std::string connection;
+
+    for (const auto& item : header_) {
+        if (ToLower_(item.first) == "connection") {
+            connection = ToLower_(Trim_(item.second));
+            break;
         }
+    }
+
+    if (version_ == "1.1") {
+        return connection != "close";
+    }
+
+    if (version_ == "1.0") {
+        return connection == "keep-alive";
     }
     return false;
 }
 
 HttpRequest::ParseResult HttpRequest::ParseRequestLine_(const std::string& line){
-    std::regex patten("^([^ ]*) ([^ ]*) HTTP/([^ ]*)$");//regex，patten代表匹配规则
-    std::smatch submatch;//收集后的容器
-    if(std::regex_match(line,submatch,patten)){
-        method_=submatch[1];
-        path_=submatch[2];
-        version_=submatch[3];
-        if(method_.empty()||path_.empty()||version_.empty()){
-            return ParseResult::BadRequest;
-        }
-        state_=PARSE_STATE::HEADERS;
-        return ParseResult::Complete;
+    // std::regex patten("^([^ ]*) ([^ ]*) HTTP/([^ ]*)$");//regex，patten代表匹配规则
+    // std::smatch submatch;//收集后的容器
+    // if(std::regex_match(line,submatch,patten)){
+    //     method_=submatch[1];
+    //     path_=submatch[2];
+    //     version_=submatch[3];
+    //     if(method_.empty()||path_.empty()||version_.empty()){
+    //         return ParseResult::BadRequest;
+    //     }
+    //     state_=PARSE_STATE::HEADERS;
+    //     return ParseResult::Complete;
+    // }
+    auto first = line.find(" ");
+    if (first == std::string::npos || first == 0) {
+      return ParseResult::BadRequest;
     }
-    LOG_ERROR("RequestLine error");
+    auto second = line.find(" ", first + 1);
+    if (first == std::string::npos || first == 0) {
+      return ParseResult::BadRequest;
+    }
+    if (line.find(' ', second + 1) != std::string::npos) {
     return ParseResult::BadRequest;
-}
+    }
+    method_=line.substr(0,first);
+    path_=line.substr(first+1,second-first-1);
+    if (line.compare(second + 1, 5, "HTTP/") != 0) {
+          LOG_ERROR("RequestLine error");
+      return ParseResult::BadRequest;
+    }
+    version_ = line.substr(second + 6);
+    if (method_.empty() || path_.empty() || version_.empty()) {
+          LOG_ERROR("RequestLine error");
+      return ParseResult::BadRequest;
+    }
+    state_ = PARSE_STATE::HEADERS;
+    return ParseResult::Complete;
 
+}
 HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
     const size_t pos=line.find(':');
     if(pos==std::string::npos||pos==0){
@@ -368,20 +402,17 @@ void HttpRequest::ParsePost_(){
               int tag=DEFAULT_HTML_TAG.find(path_)->second;
               LOG_DEBUG("Tag:%d",tag);
               if(tag==0||tag==1){
-              bool islogin=(tag==1);
-              if(WebServer::db=="MYSQL"&&UserVerify_MYSQL(post_["username"],post_["password"],islogin)){
-                     path_="/welcome.html";
-              }else if (WebServer::db=="LSM"&&UserVerify_LSM(post_["username"],post_["password"],WebServer::ip,WebServer::port, islogin)) {
-                    path_="/welcome.html";
-              }
-              else {
-                  path_="/error.html";
-              }
+                bool islogin = (tag == 1);
+                authuser.islogin = (tag == 1);
+                authuser.username = post_["username"];
+                authuser.password = post_["password"];
+                path_="/error.html";
             }
           }
       }
     
 }
+
 void HttpRequest::ParseBody_(const std::string& line){
     body_=line;
     // JSON、纯文本还是二进制不解析
@@ -441,7 +472,174 @@ void HttpRequest::ParseFromUrlencoded_(){
        }
          
  }
-   
+ //判断是加密成功与否
+ bool HttpRequest::ar_hash_and_versity(){
+     if (authuser.islogin) {
+         return  VerifyPasswordArgon2id(authuser.ar_hash_pwd,authuser.password);
+     }
+    return  HashPasswordArgon2id(authuser.password,authuser.ar_hash_pwd);
+ }
+ //根据返回值判断是否quary成功
+    bool HttpRequest::SqlQuary(){
+        if (WebServer::db=="LSM") {
+           return  quary_lsm();
+        }else {
+           return  quary_mysql();
+        }
+    }
+
+    bool HttpRequest::quary_mysql(){
+       if(authuser.username.empty() || authuser.password.empty()){
+        return false;
+    }
+
+    auto sql = SqlConnPool::Instance()->GetConn();
+    if(!sql){
+        return false;
+    }
+    //绑定string
+   auto bind_string = [](MYSQL_BIND& bind, const std::string& value,
+                          unsigned long& len) {
+        std::memset(&bind, 0, sizeof(bind));
+        len = static_cast<unsigned long>(value.size());
+        bind.buffer_type = MYSQL_TYPE_STRING;
+        bind.buffer = const_cast<char*>(value.data());
+        bind.buffer_length = len;
+        bind.length = &len;
+    };
+   //预处理语句初始化
+    auto prepare_stmt = [&](const char* query) -> MYSQL_STMT* {
+        MYSQL_STMT* stmt = mysql_stmt_init(sql.get());
+        if(!stmt){
+            return nullptr;
+        }
+        if(mysql_stmt_prepare(stmt, query, static_cast<unsigned long>(std::strlen(query)))){
+            mysql_stmt_close(stmt);
+            return nullptr;
+        }
+        return stmt;
+    };
+    //登录
+     if(authuser.islogin){
+        const char* query = "SELECT password FROM user WHERE username=? LIMIT 1";
+        MYSQL_STMT* stmt = prepare_stmt(query);
+        if(!stmt){
+            return false;
+        }
+
+        MYSQL_BIND params[1];
+        unsigned long name_len = 0;
+        bind_string(params[0], authuser.username, name_len);
+
+      //  std::string stored_hash;
+        if(!mysql_stmt_bind_param(stmt, params) && !mysql_stmt_execute(stmt)){
+            //缓冲区
+            char password_buf[ARGON2_ENCODED_LEN] = {0};
+            //这里不用bind_string是因为password_buf已经是char*
+            unsigned long password_len = 0;
+            MYSQL_BIND result[1];
+            std::memset(result, 0, sizeof(result));
+            result[0].buffer_type = MYSQL_TYPE_STRING;
+            result[0].buffer = password_buf;
+            result[0].buffer_length = sizeof(password_buf) - 1;
+            //返回的实际大小
+            result[0].length = &password_len;
+
+            if(!mysql_stmt_bind_result(stmt, result) && mysql_stmt_fetch(stmt) == 0){
+                //实际的大小小于缓冲区大小
+                if(password_len < sizeof(password_buf)){
+                    authuser.ar_hash_pwd.assign(password_buf, password_len);
+                }
+            }
+        }
+        mysql_stmt_close(stmt);
+      //  authuser.ar_hash_pwd
+      //这里只需判断查询是否成功
+        return ! authuser.ar_hash_pwd.empty() ;
+    }
+    //注册
+    
+    //注册的加密从authuser中获取
+    // std::string encoded_hash;
+    // if(!HashPasswordArgon2id(pwd, encoded_hash)){
+    //     return false;
+    // }
+
+    const char* query = "INSERT INTO user(username, password) VALUES(?, ?)";
+    MYSQL_STMT* stmt = prepare_stmt(query);
+    if(!stmt){
+        return false;
+    }
+
+    MYSQL_BIND params[2];
+    unsigned long name_len = 0;
+    unsigned long hash_len = 0;
+    bind_string(params[0], authuser.username, name_len);
+    bind_string(params[1], authuser.ar_hash_pwd, hash_len);
+
+    bool ok = !mysql_stmt_bind_param(stmt, params) && !mysql_stmt_execute(stmt);
+    mysql_stmt_close(stmt);
+    //返回注册是否成功
+    return ok;
+    }
+    
+    bool HttpRequest::quary_lsm(){
+      if (authuser.username.empty() || authuser.password.empty()) {
+        return false;
+      }
+        auto sql=lsmconnpool::Instance()->GetConn();
+        if (!sql) {
+           return false;
+        }
+        if (authuser.islogin) {
+            bool ret=lsm::lsm_quary(sql.get(),{"hget","user",authuser.username});
+            if (!ret) {
+                LOG_ERROR("lsm quary error");
+                return false;
+            }
+            LSM::lsm_result result;
+
+            ret=lsm::lsm_result_store(sql.get(),result);
+             if (!ret) {
+                LOG_ERROR("lsm rece  error");
+                return false;
+            }
+           // auto ans=std::move(lsm::lsm_fecth_row(result));
+            //失败返回$-1，成功返回$n hashpassword
+            if (lsm::lsm_fecth_row(result)=="$-1") {
+                   return false;
+            }
+            authuser.ar_hash_pwd=std::move(lsm::lsm_fecth_row(result));
+            // if (!VerifyPasswordArgon2id(ans,pwd)) {
+            //     return false;
+            // }
+            return  !authuser.ar_hash_pwd.empty();
+        }else {
+            // std::string encoded;
+            //   bool ret= HashPasswordArgon2id(pwd,encoded);
+            //   if (!ret) {
+            //     LOG_ERROR(" HashPasswordArgon2id error");
+            //      return false;
+            //   } 
+        bool  ret =lsm::lsm_put(sql.get(),{"HSETNX","user",authuser.username,authuser.ar_hash_pwd});
+            if (!ret) {
+                LOG_ERROR("lsm quary error");
+                return false;
+            }
+            LSM::lsm_result result;
+            ret=lsm::lsm_result_store(sql.get(),result);
+            if (!ret) {
+               LOG_ERROR("lsm rece  error");
+                return false;
+            }
+            auto ans=std::move(lsm::lsm_fecth_row(result));
+            if (ans!=":1") {
+                LOG_DEBUG("register error")
+                return false;
+            }
+        }
+        return true;
+    }
  bool HttpRequest::UserVerify_MYSQL(const std::string& name, const std::string& pwd, bool isLogin){
     if(name.empty() || pwd.empty()){
         return false;
