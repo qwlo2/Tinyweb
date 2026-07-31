@@ -20,6 +20,7 @@ acceptor::acceptor(int port_):port(port_){
       sockaddr_in addr;
       socklen_t addrLen=sizeof(addr);
         while (true) {
+          //accept4已设置 SOCK_NONBLOCK
         int connFd = accept4(
             listenfd,
             reinterpret_cast<sockaddr*>(&addr),
@@ -28,7 +29,7 @@ acceptor::acceptor(int port_):port(port_){
         );
 
         if (connFd >= 0) {
-            SetFdNonblock(connFd);
+          //  SetFdNonblock(connFd);
             newconnection(connFd,addr);
             continue;
         }
@@ -40,7 +41,8 @@ acceptor::acceptor(int port_):port(port_){
         if (errno == EINTR) {
             continue;
         }
-
+         // EMFILE、ENFILE、EBADF 等不能无限重试
+       LOG_ERROR("accept4 failed, errno=%d", errno);
         break;
     }
   }

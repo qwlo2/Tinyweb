@@ -32,3 +32,4 @@ __pycache__/
 http/staticfilecache.h
 .gitignore
 build-release/Tinywebserver
+text.cpp
