@@ -54,10 +54,14 @@ class eventloop{
       void closeconn(int fd);
 
       void DealRead(int fd);
-      void Onread(int fd);
+      void Onread(int fd,const std::shared_ptr<HttpConn>& conn);
 
       void DealWrite(int fd);
-      void Onwrite(int fd,std::shared_ptr<HttpConn> conn);
+      void Onwrite(int fd,const std::shared_ptr<HttpConn>& conn);
+
+      //处理登录/注册
+      void handleAuth(int fd,const std::shared_ptr<HttpConn>& conn);
+      
       //读写完调用它
       void process(int fd);
 

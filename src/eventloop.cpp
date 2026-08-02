@@ -148,20 +148,61 @@ void eventloop::closeconn(int fd){
      ep->DleFd(fd);
      it->second->Close();
 }
+//处理登录和注册
+void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
+               conn->preAuth();
+              if (conn->is_login()) {
+                 //先查后解析arg
+                   ThreadPool::init_Db()->AddTask([this,fd,&conn](){
+                          //失败则直接返回发送error.html
+                          if (!conn->SqlQuary()) {
+                               Onwrite(fd,conn);
+                               return ;
+                          }
+                          //成功则直接进行加密/验证
+                          ThreadPool::init_Argon2id()->AddTask(
+                              [this, fd, &conn]() {
+                                   if (conn->ar_hash_and_versity()) {
+                                         conn->is_success();
+                                   }
+                                   Onwrite(fd,conn);
+                              });
+                   });
+              }else {
+                 //注册要先arg再查
+                  //失败则直接返回发送error.html
+                 ThreadPool::init_Argon2id()->AddTask([this, fd, &conn]() {
+                       if (!conn->ar_hash_and_versity()) {
+                             Onwrite(fd,conn);
+                               return ;
+                         }
+                       ThreadPool::init_Db()->AddTask([this,fd,&conn](){
+                                 if (conn->SqlQuary()) {
+                                         conn->is_success();
+                                   }
+                                   Onwrite(fd,conn);
+                       });
+                 });
+
+              }
+}
+
 void eventloop::DealRead(int fd){
-     auto it = httpcoon.find(fd);
-     if (it == httpcoon.end() || !it->second) {
-         return;
+     if (!httpcoon.contains(fd)) {
+        return;
      }
-     std::shared_ptr<HttpConn> conn = it->second;
+     std::shared_ptr<HttpConn> conn = httpcoon[fd];
      if (!isCurrentConnection(fd, conn)) {
          return;
      }
      ExtentTime_(conn.get());
-     //先不加入线程池
+     Onread(fd, conn);
+}
+void eventloop::Onread(int fd,const std::shared_ptr<HttpConn>& conn){
+        //先不加入线程池
      //push_and_do_task(std::bind(&eventloop::Onread, this,fd));
     
-     ThreadPool::init_io()->AddTask([this, fd, conn]() {
+     ThreadPool::init_io()->AddTask([this, fd, &conn]() {
        int saveerrno = 0;
        int ret = conn->read(&saveerrno);
        if (ret < 0 && (saveerrno == EAGAIN || saveerrno == EWOULDBLOCK)) {
@@ -186,41 +227,7 @@ void eventloop::DealRead(int fd){
                });
               
        } else if (conn->sta==ProcessResult::NeedAuth) {
-              conn->preAuth();
-              if (conn->is_login()) {
-                 //先查后解析arg
-                   ThreadPool::init_Db()->AddTask([this,fd,conn](){
-                          //失败则直接返回发送error.html
-                          if (!conn->SqlQuary()) {
-                               Onwrite(fd,conn);
-                               return ;
-                          }
-                          //成功则直接进行加密/验证
-                          ThreadPool::init_Argon2id()->AddTask(
-                              [this, fd, conn]() {
-                                   if (conn->ar_hash_and_versity()) {
-                                         conn->is_success();
-                                   }
-                                   Onwrite(fd,conn);
-                              });
-                   });
-              }else {
-                 //注册要先arg再查
-                  //失败则直接返回发送error.html
-                 ThreadPool::init_Argon2id()->AddTask([this, fd, conn]() {
-                       if (!conn->ar_hash_and_versity()) {
-                             Onwrite(fd,conn);
-                               return ;
-                         }
-                       ThreadPool::init_Db()->AddTask([this,fd,conn](){
-                                 if (conn->SqlQuary()) {
-                                         conn->is_success();
-                                   }
-                                   Onwrite(fd,conn);
-                       });
-                 });
-
-              }
+              handleAuth(fd, conn);
        }else {
         push_and_do_task([this, fd, conn]() {
                if (!isCurrentConnection(fd, conn)) {
@@ -231,45 +238,27 @@ void eventloop::DealRead(int fd){
          return ;
        }
      }else {
-      push_and_do_task([this, fd, conn] {
+      push_and_do_task([this, fd, &conn] {
         if (isCurrentConnection(fd, conn)) {
           closeconn(fd);
         }
       });
      }
-     });
+    });
 }
-// void eventloop::Onread(int fd){
-//     int saveerrno=0;
-//     int ret=httpcoon[fd].read(&saveerrno);
-//     if (ret<0&&(saveerrno==EAGAIN||saveerrno==EWOULDBLOCK)) {
-//             //当返回只为-1，即第一次就是-1，重新读
-//             // if (httpcoon[fd]->IsKeepAlive()) {
-//                ep->ModFd(fd,EPOLLIN|event);
-//                return;
-//             //}
-//     }else if (ret!=0) {
-//     //读完解析
-//        process(fd);
-//        return;
-//     }
-//     //读完==0且不是长连接
-//   closeconn(fd);
-// }
 
 void eventloop::DealWrite(int fd){
-   auto it = httpcoon.find(fd);
-   if (it == httpcoon.end() || !it->second) {
-       return;
-   }
-   std::shared_ptr<HttpConn> conn = it->second;
+    if (!httpcoon.contains(fd )) {
+        return;
+    }
+   std::shared_ptr<HttpConn>& conn = httpcoon[fd];
    if (!isCurrentConnection(fd, conn)) {
        return;
    }
    ExtentTime_(conn.get());
    Onwrite(fd, conn);
 }
-void eventloop::Onwrite(int fd,std::shared_ptr<HttpConn> conn){
+void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn>& conn){
     //写完，未写完，没写三种情况
     //
     push_and_do_task([this, fd, conn]() {
@@ -287,6 +276,7 @@ void eventloop::Onwrite(int fd,std::shared_ptr<HttpConn> conn){
             //当返回只为0，写完
             if (conn->IsKeepAlive()) {
               ThreadPool::init_io()->AddTask([this, fd,conn]() {
+                //半包和刚好一个的情况已经处理，如果此时是黏包，应该直接进行解析
                  conn->process();
                   if (conn->sta==ProcessResult::NeedRead ) {
                           push_and_do_task([this, fd, conn]() {
@@ -297,40 +287,7 @@ void eventloop::Onwrite(int fd,std::shared_ptr<HttpConn> conn){
                           });
                      
                   }else if (conn->sta==ProcessResult::NeedAuth) {
-                    conn->preAuth();
-                    if (conn->is_login()) {
-                      // 先查后解析arg
-                      ThreadPool::init_Db()->AddTask([this, fd, conn]() {
-                        // 失败则直接返回发送error.html
-                        if (!conn->SqlQuary()) {
-                          Onwrite(fd,conn);
-                          return;
-                        }
-                        // 成功则直接进行加密/验证
-                        ThreadPool::init_Argon2id()->AddTask(
-                            [this, fd, conn]() {
-                              if (conn->ar_hash_and_versity()) {
-                                conn->is_success();
-                              }
-                              Onwrite(fd,conn);
-                            });
-                      });
-                    } else {
-                      // 注册要先arg再查
-                      // 失败则直接返回发送error.html
-                      ThreadPool::init_Argon2id()->AddTask([this, fd, conn]() {
-                        if (!conn->ar_hash_and_versity()) {
-                          Onwrite(fd,conn);
-                          return;
-                        }
-                        ThreadPool::init_Db()->AddTask([this, fd, conn]() {
-                          if (conn->SqlQuary()) {
-                            conn->is_success();
-                          }
-                          Onwrite(fd,conn);
-                        });
-                      });
-                    }
+                      handleAuth(fd, conn);
                   } else {                    
                          push_and_do_task([this, fd, conn]() {
                               if (!isCurrentConnection(fd, conn)) {

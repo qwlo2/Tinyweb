@@ -38,7 +38,18 @@ public:
         std::string ar_hash_pwd;
         bool islogin;
     };
+    struct FileEr{
+        int user_id;
+        std::string user_name;
+        int file_id;
+        std::string file_name;
+        size_t file_size;
+        bool isUpload;
+    };
+    //登录/注册
     Authuser authuser{};
+    //文件下载上传
+    FileEr  filer{};
     HttpRequest() { Init(); }
     ~HttpRequest() = default;
 

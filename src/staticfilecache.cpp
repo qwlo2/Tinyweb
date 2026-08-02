@@ -47,6 +47,7 @@ StaticFileCache& StaticFileCache::Instance() {
 }
 
 StaticFileLookup StaticFileCache::Get(const std::string& fullPath) {
+    // 无需更新访问顺序时走共享锁快速路径，允许多个读取请求并发命中。
     {
         std::shared_lock<std::shared_mutex> lock(mutex_);
         auto it = cachedFiles_.find(fullPath);
@@ -64,6 +65,7 @@ StaticFileLookup StaticFileCache::Get(const std::string& fullPath) {
         }
     }
 
+    // 需要提升热度或刷新访问顺序时，使用独占锁修改缓存元数据。
     {
         std::unique_lock<std::shared_mutex> lock(mutex_);
         auto it = cachedFiles_.find(fullPath);
@@ -73,20 +75,23 @@ StaticFileLookup StaticFileCache::Get(const std::string& fullPath) {
         }
     }
 
+    // 在不持有缓存锁的情况下完成文件 I/O 和 mmap，避免阻塞其他缓存请求。
     StaticFileLookup loaded = Load_(fullPath);
     if (!loaded) {
         return loaded;
     }
 
     const size_t fileSize = loaded.file->Size();
+    // 超过缓存总容量的文件仅服务本次请求，不加入缓存。
     if (fileSize > MAX_CACHE_BYTES) {
         return loaded;
     }
 
-    // Keep evicted mappings alive until after the cache mutex is released, so
-    // munmap() never runs while blocking other cache operations.
+    // 将淘汰文件保留到释放缓存锁之后再析构，避免持锁执行 munmap。
     std::vector<std::shared_ptr<const MappedFile>> evictedFiles;
     std::unique_lock<std::shared_mutex> lock(mutex_);
+
+    // Load_ 执行期间其他线程可能已插入同一文件，因此需要再次检查。
     auto existing = cachedFiles_.find(fullPath);
     if (existing != cachedFiles_.end()) {
         RecordCacheHit_(fullPath, existing->second);
@@ -95,6 +100,7 @@ StaticFileLookup StaticFileCache::Get(const std::string& fullPath) {
         return loaded;
     }
 
+    // 空间不足时优先淘汰仅访问一次的文件，再淘汰热链表尾部文件。
     while (cachedBytes_ > MAX_CACHE_BYTES - fileSize) {
         std::shared_ptr<const MappedFile> evictedFile;
         if (!EvictLeastRecentlyUsedFile_(evictedFile)) {
@@ -103,6 +109,7 @@ StaticFileLookup StaticFileCache::Get(const std::string& fullPath) {
         evictedFiles.push_back(std::move(evictedFile));
     }
 
+    // 按需加载的新文件从“访问一次”队列开始记录。
     filesAccessedOnce_.push_front(fullPath);
     CacheEntry entry;
     entry.file = loaded.file;

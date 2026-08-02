@@ -83,12 +83,12 @@ bool VerifyPasswordArgon2id(const std::string& encoded, const std::string& passw
 }
 
 const std::unordered_map<std::string,int >   HttpRequest::DEFAULT_HTML_TAG{
-         {"/register.html",0} ,{"/login.html",1}
+         {"/register.html",0} ,{"/login.html",1},{"file.html",2}
 };
  
 const std::unordered_set<std::string> HttpRequest::DEFAULT_HTML{
     "register.html","login.html","index.html","welcome.html",
-      "video.html" ,"picture.html"
+      "video.html" ,"picture.html","file.html"
 };
 void HttpRequest::Init(){
     state_=PARSE_STATE::REQUEST_LINE;
@@ -396,26 +396,26 @@ void HttpRequest::ParsePath_(){
     }
 }
 void HttpRequest::ParsePost_(){
-      if(method_=="POST"&&header_["Content-Type"]=="application/x-www-form-urlencoded"){
+      if(method_=="POST"&&(path_=="register.html"||path_=="login.html")){
           //ParseFromUrlencoded_();
-          if(DEFAULT_HTML_TAG.count(path_)){
               int tag=DEFAULT_HTML_TAG.find(path_)->second;
               LOG_DEBUG("Tag:%d",tag);
-              if(tag==0||tag==1){
-                bool islogin = (tag == 1);
                 authuser.islogin = (tag == 1);
                 authuser.username = post_["username"];
                 authuser.password = post_["password"];
                 path_="/error.html";
-            }
-          }
+      }else  {
+           int tag=DEFAULT_HTML_TAG.find(path_)->second;
+              LOG_DEBUG("Tag:%d",tag);
+                filer.
+                path_="/error.html";
       }
     
 }
 
 void HttpRequest::ParseBody_(const std::string& line){
     body_=line;
-    // JSON、纯文本还是二进制不解析
+    // JSON、纯文本还有二进制不解析
     if(header_["Content-Type"] == "application/x-www-form-urlencoded") {
         ParseFromUrlencoded_();
     }
