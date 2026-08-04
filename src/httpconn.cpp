@@ -1,6 +1,7 @@
  #include "httpconn.h"
 #include "httprequest.h"
  #include "log.h"
+#include "session.h"
 #include <netinet/in.h>
 #include <string>
 #include <strings.h>
@@ -12,6 +13,7 @@
 #include <errno.h>    
 #include <algorithm>
 #include <cstring>
+#include <utility>
  bool HttpConn::isET;
  const char* HttpConn::srcDir;
  std::atomic<int> HttpConn::userCount;
@@ -96,16 +98,25 @@ sockaddr_in HttpConn::GetAddr() const{
 void HttpConn::process(){
      
      auto result=request_.parse(readBuff_);
-     //不完整
-     if(result==HttpRequest::ParseResult::Incomplete){
-        sta= ProcessResult::NeedRead;
-        return;
+     //这里返回的是process的状态，让reactor知道是该读写，登录/注册，上传，下载
+     switch (result) {
+        case  HttpRequest::ParseResult::Incomplete:
+              sta= ProcessResult::NeedRead;
+              return;
+       case  HttpRequest::ParseResult::NeedAuth:
+              sta= ProcessResult::NeedAuth;
+              response_.set_has_cookies(true);
+              return;       
+        case  HttpRequest::ParseResult::Upload:
+              sta= ProcessResult::Upload;
+              return;
+        case  HttpRequest::ParseResult::Download:
+              sta= ProcessResult::Download;
+              return;   
+        default:
+              break;   
      }
-     //完整但是要prasepost
-     if (result==HttpRequest::ParseResult::Complete&&request_.IsAuthRequest()) {
-           sta= ProcessResult::NeedAuth;
-           return;
-     }
+      //太长以，格式错误，普通get/body直接做响应报文然后写
       makeResponse(result);
    sta= ProcessResult::ReadyWrite;
 }
@@ -136,8 +147,20 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
      request_.Init();
      //只有403在MakeResponse中用读权限判断给出
      response_.Init(srcDir,path,keepAlive_,code);
-     response_.MakeResponse(writeBuff_);
-
+     //登录/注册
+    if (response_.get_has_cookies()) {
+         auto tokens=std::move( Session::Intense()->gettoken(request_.GetPost("username"))); 
+        //  if (!tokens) {
+        //此时应该将code转换为503  Service Unavailable重新登录
+        //path也要更换
+        //has——cookies=false
+        //  }
+        response_.set_cookies(tokens.value());
+         response_.MakeResponse(writeBuff_);
+    }else {
+        //普通报文
+         response_.MakeResponse(writeBuff_);
+    }
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
      iovCnt_=1;

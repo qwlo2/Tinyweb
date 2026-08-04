@@ -2,12 +2,15 @@
 #include "buffer.h"
 #include "httprequest.h"
 #include "httpresponse.h"
+#include "session.h"
 #include <mutex>
 #include <netinet/in.h>
 enum class ProcessResult {
     NeedRead,
     ReadyWrite,
-    NeedAuth
+    NeedAuth,
+    Upload,
+    Download
 };
 class HttpConn {
 public:
@@ -32,10 +35,10 @@ public:
     sockaddr_in GetAddr() const;
     
     void process();
-   void processAuth() {
-    request_.DoAuth();
-    makeResponse(HttpRequest::ParseResult::Complete);
-}
+//    void processAuth() {
+//     request_.DoAuth();
+//     makeResponse(HttpRequest::ParseResult::Complete);
+// }
    //判断是否为post和可解析文本，并初始化name，pwd
    void preAuth(){
        request_.DoAuth();
@@ -50,7 +53,7 @@ public:
        
     }
     bool is_login(){
-        return request_.authuser.islogin;
+        return request_.authuser.getIslogin();
     }
      void is_success(){
         request_.is_success();
@@ -67,7 +70,10 @@ public:
     bool IsKeepAlive() const {
         return keepAlive_;
     }
-   
+    bool  versityToken(){
+        return  Session::Intense()->versityToken(request_.GetPost("cookies"));
+    }
+
     static bool isET;
      static const char* srcDir;
     static std::atomic<int> userCount;

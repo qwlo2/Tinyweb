@@ -105,4 +105,33 @@ eventfd_read、eventfd_write
 blockdeque的内部有了cv和mutex，因此在sqlpool中其实不用semid和锁
 
 云盘：
-表：user_id,user_name,file_id,file_name,file_size
+文件表：user_id,user_name,file_id,file_name,file_size
+用户表：user_id,username,pwd（哈希加密后的）
+通过cookies来区分用户，不能明文传输user-id，不然无法区分攻击报文，先登录然后返回cookies，然后存储cookies和user-id的对应
+每次的http报文都含有cookies，在服务器进行user-id的查询，session层在webserver，通过单例模式让其他的调用，登录/注册的响应报文要加上这个
+
+session：
+对登录/注册的响应报文新增函数，在函数里通过session获取cookies
+采用redis+mysql，因此它也是一个redis连接池
+登录时要重新验证，退出时删除，受保护请求如上传，下载，分享要验证并延长时间（空闲30分钟即失效）
+response直接持有cookies，因为在resie出错时path和code也要更改，因此要在构造响应报文之前进行插入
+httpcoon的versityToken直接调用session的versityToken，在makeResponse进行gettokens
+
+文件存储：
+
+
+4个线程池:普通io，Auth_io，file_io,数据可io
+subreactor用http处理后，根据状态调用函数，http下辖auth类，upload，download类
+httprequst和httpcoon状态增加upload，download，conn的sta让subreactor知道该如何选择函数
+auth：reactor调用auth-io和sql-io，handleAuth
+upload：调用file-io，sql-io，handleUpload
+download：调用file-io，sql-io，handeldowanload
+
+普通的bode解析以及登录的操作依旧是之前的逻辑
+
+上传现在httprequst的process中进行解析，增加了file知道将其解析到文件数据，然后返回upload，reactor调用函数
+实则如auth一般，requst拥有fileupload类，上传的函数是回调的这里。
+
+dlownload，解析按普通逻辑，报文按file makeresponse流式传输
+
+对上传报文的非数据部分的解析已经完成，明天完成文件的传输（落盘以及元数据的存储，还有cookies，应该是根据cookies来判断用户）

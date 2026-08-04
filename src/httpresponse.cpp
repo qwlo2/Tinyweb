@@ -4,7 +4,6 @@
 #include <cassert>
 #include <string>
 #include <unordered_map>
-#include <utility>
 
 const std::unordered_map<std::string, std::string> HttpResponse::SUFFIX_TYPE = {
     { ".html",  "text/html" },
@@ -56,6 +55,8 @@ void HttpResponse::Init(const std::string& srcDir, std::string& path,
     code_ = code;
     srcDir_ = srcDir;
     path_ = path;
+    has_cookies=false;
+    cookies={};
 }
 
 void HttpResponse::UnmapFile() {
@@ -128,6 +129,10 @@ void HttpResponse::AddHeader_(Buffer &buff){
     }
     else {
        buff.Append("close\r\n");
+    }
+    if (has_cookies) {
+       
+       buff.Append("Set-Cookie:"+cookies+"\r\n");
     }
     buff.Append("Content-type:"+GetFileType_()+"\r\n");
 }

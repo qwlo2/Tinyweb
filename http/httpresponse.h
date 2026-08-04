@@ -2,7 +2,9 @@
 #include "buffer.h"
 #include "staticfilecache.h"
 #include <memory>
+#include <string>
 #include <unordered_map>
+#include <utility>
 
 class HttpResponse {
 public:
@@ -16,7 +18,15 @@ public:
     size_t getFileLen() const;
     void ErrorContent(Buffer& buff, std::string message);
     int Code() const { return code_; }
-
+    void set_has_cookies(bool has_cookies_){
+         has_cookies=has_cookies_;
+    }
+    bool& get_has_cookies(){
+          return  has_cookies;
+    }
+    void set_cookies( std::string& cookies_){
+         cookies=std::move(cookies_);
+    }
 private:
     void AddStateLine_(Buffer &buff);
     void AddHeader_(Buffer &buff);
@@ -32,6 +42,8 @@ private:
     std::string srcDir_;
     
     std::shared_ptr<const MappedFile> file_;
+    bool has_cookies{false};
+    std::string cookies;
 
     static const std::unordered_map<std::string, std::string> SUFFIX_TYPE;
     static const std::unordered_map<int, std::string> CODE_STATUS;

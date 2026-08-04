@@ -45,7 +45,12 @@ if(NOT SRC_LIST)
     message(FATAL_ERROR "No source files found in ${CMAKE_CURRENT_SOURCE_DIR}/src")
 endif()
 
-add_executable(Tinywebserver ${SRC_LIST})
+add_executable(Tinywebserver ${SRC_LIST}
+    src/Auth.cpp
+    http/upload.h
+    src/upload.cpp
+    server/session.h
+    src/session.cpp)
 
 target_include_directories(Tinywebserver PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/buffer
@@ -60,4 +65,6 @@ target_link_libraries(Tinywebserver PRIVATE
     pthread
     mysqlclient
     argon2
+    hiredis
+    crypto
 )

@@ -162,6 +162,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
                           //成功则直接进行加密/验证
                           ThreadPool::init_Argon2id()->AddTask(
                               [this, fd, &conn]() {
+                                //通过path是否为welcone界面来判断是否成功
                                    if (conn->ar_hash_and_versity()) {
                                          conn->is_success();
                                    }
