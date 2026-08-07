@@ -12,7 +12,7 @@
 #include "log.h"
 
 const std::unordered_map<std::string,int >   HttpRequest::DEFAULT_HTML_TAG{
-         {"/register.html",0} ,{"/login.html",1},{"file.html",2}
+         {"/register.html",0} ,{"/login.html",1},{"/file.html",2}
 };
  
 const std::unordered_set<std::string> HttpRequest::DEFAULT_HTML{
@@ -27,9 +27,6 @@ void HttpRequest::Init(){
     body_.clear();
     header_.clear();
     post_.clear();
-    //这2个的要是否资源因为下一次报文不一定与文件有关
-    authuser.init();
-    file.init();
 
     contentLength_=0;
     headerBytes_=0;
@@ -97,7 +94,7 @@ HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
                     return ParseResult::PayloadTooLarge;
                 }
                 if(contentLength_>0&&method_=="POST"&&path_=="/file"){
-                    state_==PARSE_STATE::FILR_BODY;
+                    state_=PARSE_STATE::FILR_BODY;
                     continue;
                 }else if (contentLength_>0) {
                     state_=PARSE_STATE::BODY;
@@ -129,6 +126,7 @@ HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
             buff.RetrieveUntil(lineend+2);
             if (line.empty()||line=="--"+post_["boundary"]) {
                 if (ready_rece_data) {
+                    state_=PARSE_STATE::FINISH;
                     return  ParseResult::Upload;
                 }
                continue;
@@ -365,8 +363,26 @@ void HttpRequest::ParsePath_(){
         }
     }
 }
-void HttpRequest::ParsePost_(){
-      if(method_=="POST"&&(path_=="register.html"||path_=="login.html")){
+// void HttpRequest::ParsePost_(){
+//       if(method_=="POST"&&(path_=="register.html"||path_=="login.html")){
+//           //ParseFromUrlencoded_();
+//               int tag=DEFAULT_HTML_TAG.find(path_)->second;
+//               LOG_DEBUG("Tag:%d",tag);
+//                bool islogin_=tag == 1;
+//                 authuser.setIslogin(islogin_);
+//                 authuser.setUsername(post_["username"]);
+//                 authuser.setPasaword(post_["password"]);
+//                 path_="/error.html";
+//       }else  {
+//            int tag=DEFAULT_HTML_TAG.find(path_)->second;
+//               LOG_DEBUG("Tag:%d",tag);
+//                 file.parase_filed(file_filed);
+//                 path_="/error.html";
+//       }
+    
+// }
+ void HttpRequest::paraAuth(Auth& authuser){
+ if(method_=="POST"&&(path_=="/register.html"||path_=="/login.html")){
           //ParseFromUrlencoded_();
               int tag=DEFAULT_HTML_TAG.find(path_)->second;
               LOG_DEBUG("Tag:%d",tag);
@@ -375,15 +391,17 @@ void HttpRequest::ParsePost_(){
                 authuser.setUsername(post_["username"]);
                 authuser.setPasaword(post_["password"]);
                 path_="/error.html";
-      }else  {
-           int tag=DEFAULT_HTML_TAG.find(path_)->second;
-              LOG_DEBUG("Tag:%d",tag);
-                file.parase_filed(file_filed);
-                path_="/error.html";
       }
-    
+ }
+void HttpRequest::paraFile(UploadFile& filer){
+  if(method_=="POST"&&(path_=="/file")){
+    int tag=DEFAULT_HTML_TAG.find(path_)->second;
+              LOG_DEBUG("Tag:%d",tag);
+                filer.parase_filed(file_filed);
+                filer.get_boundary()=post_["boundary"];
+                path_="/error.html";
+  }
 }
-
 void HttpRequest::ParseBody_(const std::string& line){
     body_=line;
     // JSON、纯文本还有二进制不解析
@@ -484,17 +502,22 @@ void HttpRequest::ParseFromUrlencoded_(){
        }
          
  }
- //判断是加密成功与否
- bool HttpRequest::ar_hash_and_versity(){
-     return  authuser.ar_hash_and_versity();
- }
- //根据返回值判断是否quary成功
-    bool HttpRequest::SqlQuary(){
-         return  authuser.SqlQuary();
-    }
+//  //判断是加密成功与否
+//  bool HttpRequest::ar_hash_and_versity(){
+//      return  authuser.ar_hash_and_versity();
+//  }
+//  //根据返回值判断是否quary成功
+//     bool HttpRequest::SqlQuary(){
+//          return  authuser.SqlQuary();
+//     }
 int  HttpRequest::ConverHex(char ch){
          if(ch>='a'&&ch<='f')   return  ch-'a'+10;
          if(ch>='A'&&ch<='F')   return  ch-'A'+10;
          return  ch-'0';
  }
-  
+//   size_t& HttpRequest::get_userid(){
+//          return file.get_user_id();
+// }
+// std::string HttpRequest::get_filename(){
+//          return  file.get_filename();
+// }

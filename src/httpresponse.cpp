@@ -31,13 +31,15 @@ const std::unordered_map<int,std::string> HttpResponse::CODE_STATUS{
     {400,"Bad Request"},
      {403,"Forbidden"},
      {404,"Not Found"},
-     {413,"Payload Too Large"}
+     {413,"Payload Too Large"},
+     {500 ,"Internal Server Error"}
 };
 const std::unordered_map<int,std::string> HttpResponse::CODE_PATH{
      {404,"/404.html"},
      {403,"/403.html"},
      {400,"/400.html"},
-     {413,"/400.html"}
+     {413,"/400.html"},
+         {500,"/400.html"}
 };
 HttpResponse::HttpResponse()
     : code_(-1), isKeepAlive_(false), file_(nullptr) {

@@ -1,4 +1,6 @@
 #include "buffer.h"
+#include "Auth.h"
+#include <cerrno>
 #include <cstddef>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -39,6 +41,9 @@ void Buffer::HasWritten(size_t len){
 void Buffer::Retrieve(size_t len){
     assert(len<=ReadableBytes());
     readPos_+=len;
+    if (readPos_==writePos_) {
+       readPos_=writePos_=0;
+    }
 }
 void Buffer::RetrieveUntil(const char* end){
     assert(Peek()<=end);
@@ -81,7 +86,8 @@ void Buffer::Append(const Buffer& buff){
 }
 //fd中读取到buffer
 ssize_t Buffer::ReadFd(int fd, int* saveErrno){
-    char buff[65535];//单次系统调用高效读取的上限，linux不建议超过64kb
+   // char buff[65535-buf_size];数组要常量是因为栈变量的大小要确定，指针和vector底层都是堆空间
+    char* buff=new char[65536-buffer_.size()];//设置上限，最大64kb
      iovec iov[2];//2个地方分别是buffer和临时缓冲区，配合readv，writev，read/write依次写满
      const size_t save_writableBytes=WritableBytes();
     iov[0].iov_base=BeginWrite();
@@ -101,19 +107,27 @@ ssize_t Buffer::ReadFd(int fd, int* saveErrno){
         writePos_=buffer_.size();
         Append(buff,len-save_writableBytes);
     }
+    delete[]  buff;
     return len;
 }
 //向fd中写入
-ssize_t Buffer::WriteFd(int fd, int* saveErrno){
-    size_t save_ReadableBytes=ReadableBytes();
-    ssize_t len=write(fd,Peek(),save_ReadableBytes);
-    if(len<0){
-        *saveErrno=errno;
+bool Buffer::WriteFd(int fd, int& len_){
+   // size_t save_ReadableBytes=ReadableBytes();
+   //len是要传的大小也兼顾已经write的大小
+   ssize_t offect=len_;
+    len_=0;
+    while (len_<offect) {
+    ssize_t tmp=write(fd,Peek(),offect-len_);
+    if(tmp>0){
+         readPos_+=tmp;
+         len_+=tmp;
     }
-    else {
-         readPos_+=len;
+    else if (tmp<0&&errno==EINTR) {
+        continue;
     }
-     return len;
+    return false;
+  }
+     return len_;
 }
 char* Buffer::BeginPtr_(){
     //return  &*buffer_.begin();
@@ -138,4 +152,16 @@ void Buffer::MakeSpace_(size_t len){
          writePos_=readPos_+save;
          assert(save == ReadableBytes());
      }
+}
+void Buffer::adjust_pos(){
+      if (readPos_==0) {
+         return;
+      }
+      char* ch=BeginPtr_();
+        size_t save=ReadableBytes();
+        //移动到最前方
+         std::copy(ch+readPos_,ch+writePos_,ch);
+         readPos_=0;
+         writePos_=readPos_+save;
+         assert(save == ReadableBytes());
 }

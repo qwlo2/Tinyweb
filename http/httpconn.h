@@ -1,8 +1,10 @@
 #pragma once
+#include "Auth.h"
 #include "buffer.h"
 #include "httprequest.h"
 #include "httpresponse.h"
 #include "session.h"
+#include "upload.h"
 #include <mutex>
 #include <netinet/in.h>
 enum class ProcessResult {
@@ -40,24 +42,18 @@ public:
 //     makeResponse(HttpRequest::ParseResult::Complete);
 // }
    //判断是否为post和可解析文本，并初始化name，pwd
-   void preAuth(){
-       request_.DoAuth();
-   }
+   void Parseauth();
+   void ParseFile() ;
    //查询或插入
-    bool SqlQuary(){
-        return request_.SqlQuary();
-    }
+    bool SqlQuary();
     //加密或验证
-    bool ar_hash_and_versity(){ 
-        return  request_.ar_hash_and_versity();
-       
-    }
-    bool is_login(){
-        return request_.authuser.getIslogin();
-    }
-     void is_success(){
-        request_.is_success();
-     }
+    bool ar_hash_and_versity();
+    bool is_login();
+     void is_success();
+     //文件上传
+     bool upload_file(int file_fd);
+      Upload handle_upload_file();
+
     void makeResponse(HttpRequest::ParseResult  sta);
     int ToWriteBytes() const {
         size_t bytes = 0;
@@ -67,12 +63,8 @@ public:
         return static_cast<int>(bytes);
     }
 
-    bool IsKeepAlive() const {
-        return keepAlive_;
-    }
-    bool  versityToken(){
-        return  Session::Intense()->versityToken(request_.GetPost("cookies"));
-    }
+    bool IsKeepAlive() const ;
+    bool  versityToken();
 
     static bool isET;
      static const char* srcDir;
@@ -95,4 +87,9 @@ private:
    
     HttpRequest request_;
     HttpResponse response_;
+
+    //登录/注册
+    Auth authuser;
+    //文件下载上传
+    UploadFile file;
 };

@@ -61,7 +61,10 @@ class eventloop{
 
       //处理登录/注册
       void handleAuth(int fd,const std::shared_ptr<HttpConn>& conn);
-      
+      //处理上传
+      void hadleUpload(int fd,const std::shared_ptr<HttpConn>& conn);
+      //处理下载
+      void hadleDownload(int fd,const std::shared_ptr<HttpConn>& conn);
       //读写完调用它
       void process(int fd);
 

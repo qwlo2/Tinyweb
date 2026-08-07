@@ -1,5 +1,6 @@
 #pragma  once
 
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -20,7 +21,7 @@ class Session{
 
       std::optional<std::string> gettoken( const std::string& uesename);
 
-      bool versityToken(const std::string& cookies);
+      bool versityToken(const std::string& cookies,size_t& user_id);
 
       static Session*  Intense();
       Session();

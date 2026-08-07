@@ -115,4 +115,8 @@ ThreadPool(ThreadPool&&) = default;
         static  ThreadPool pool(WebServer::threadDbnums);
         return  &pool;
     }
+    static ThreadPool* init_File(){
+        static  ThreadPool pool(WebServer::threadionums);
+        return  &pool;
+    }
 };

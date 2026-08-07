@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cerrno>
 #include <charconv>
+#include <cstddef>
 #include <cstring>
 #include "sha256.h"
 #include "sqlconnpool.h"
@@ -155,7 +156,7 @@ std::optional<std::string> Session::gettoken( const std::string& uesename){
     }
     return cookies;
 }
-bool Session::versityToken(const std::string& cookies){
+bool Session::versityToken(const std::string& cookies,size_t& user_id){
        auto redis_sql=std::move(GetConn());
        std::string token_hash = sha256_hex(cookies);    // 作为 Redis Key
        std::string timeout("1800");
@@ -178,7 +179,7 @@ bool Session::versityToken(const std::string& cookies){
         // Key 不存在、已被删除或者已经过期
          return false;
     } else if (reply->type == REDIS_REPLY_STRING) {
-        std::uint64_t user_id = 0;
+       // std::uint64_t user_id = 0;
 
         const char* begin = reply->str;
         const char* end = reply->str + reply->len;

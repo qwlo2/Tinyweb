@@ -1,11 +1,11 @@
 #include "acceptor.h"
 #include "epoll.h"
 #include "eventloop.h"
-#include "eventLoopPool.h"
 #include "heaptimer.h"
 #include "httpconn.h"
 #include "log.h"
 #include "threadpool.h"
+#include "upload.h"
 
 #include <asm-generic/errno.h>
 #include <cerrno>
@@ -150,7 +150,7 @@ void eventloop::closeconn(int fd){
 }
 //处理登录和注册
 void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
-               conn->preAuth();
+               conn->Parseauth();
               if (conn->is_login()) {
                  //先查后解析arg
                    ThreadPool::init_Db()->AddTask([this,fd,&conn](){
@@ -187,7 +187,48 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
 
               }
 }
+ void eventloop::hadleUpload(int fd,const std::shared_ptr<HttpConn>& conn){
+       ThreadPool::init_File()->AddTask([fd,this,&conn](){
+                auto ret=std::move(conn->handle_upload_file());
+                switch (ret) {
+                    case Upload::NeedRead:
+                                   ThreadPool::init_io()->AddTask([fd,this,&conn](){
+                                         push_and_do_task([this, fd, conn]() {
+                                               if (!isCurrentConnection(fd, conn)) {
+                                                       return;
+                                                 }
+                                                 ep->ModFd(fd, EPOLLIN | event); 
+                                         });
+                                   });
+                                   break;
+                    case Upload::ReadyWrite:
+                                       ThreadPool::init_io()->AddTask([fd,this,&conn](){
+                                         conn->makeResponse(HttpRequest::ParseResult::Complete);
+                                         push_and_do_task([this, fd, conn]() {
+                                               if (!isCurrentConnection(fd, conn)) {
+                                                       return;
+                                                 }
+                                                 ep->ModFd(fd, EPOLLOUT | event); 
+                                         });
+                                   });
+                                   break;
+                    case Upload::UploadError:
+                                       ThreadPool::init_io()->AddTask([fd,this,&conn](){
+                                         conn->makeResponse(HttpRequest::ParseResult::UploadErroe);
+                                         push_and_do_task([this, fd, conn]() {
+                                               if (!isCurrentConnection(fd, conn)) {
+                                                       return;
+                                                 }
+                                                 ep->ModFd(fd, EPOLLOUT | event); 
+                                         });
+                                   });
+                                   break;
+                }
+       });
+ }
+  void eventloop::hadleDownload(int fd,const std::shared_ptr<HttpConn>& conn){
 
+  }
 void eventloop::DealRead(int fd){
      if (!httpcoon.contains(fd)) {
         return;
@@ -227,16 +268,20 @@ void eventloop::Onread(int fd,const std::shared_ptr<HttpConn>& conn){
                 ep->ModFd(fd, EPOLLIN | event);
                });
               
-       } else if (conn->sta==ProcessResult::NeedAuth) {
+          } else if (conn->sta==ProcessResult::NeedAuth) {
               handleAuth(fd, conn);
-       }else {
-        push_and_do_task([this, fd, conn]() {
+          }else if (conn->sta==ProcessResult::Upload) {
+              hadleUpload(fd,conn);
+          }else if (conn->sta==ProcessResult::Download) {
+              hadleDownload(fd,conn);
+          }else{
+            push_and_do_task([this, fd, conn]() {
                if (!isCurrentConnection(fd, conn)) {
                  return;
                }
                ep->ModFd(fd, EPOLLOUT | event); 
-        });
-         return ;
+          });
+            return ;
        }
      }else {
       push_and_do_task([this, fd, &conn] {

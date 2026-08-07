@@ -27,12 +27,13 @@ public:
         Complete,//普通的body
         NeedAuth,//登录
         Upload,//上传
-        Download//下载
+        UploadErroe,
+        Download,//下载
+        DownloadErroe
     };
-    //登录/注册
-    Auth authuser;
-    //文件下载上传
-    UploadFile file;
+    // size_t& get_userid();s
+    // std::string get_filename();
+
     HttpRequest() { Init(); }
     ~HttpRequest() = default;
 
@@ -45,16 +46,16 @@ public:
     std::string getversion() const;
     std::string GetPost(const std::string& key) const;
     std::string GetPost(const char* key) const;
-  
+    
+    void paraAuth(Auth& auther);
+    void paraFile(UploadFile& filer);
+
     bool IsKeepAlive() const;
 
-    void DoAuth(){
-         ParsePost_();
-    }
- //通过sql验证密码等
-    bool SqlQuary();
-     //加密与验证
-    bool ar_hash_and_versity();
+//  //通过sql验证密码等
+//     bool SqlQuary();
+//      //加密与验证
+//     bool ar_hash_and_versity();
     //注册/登录成功，改变path
     void is_success(){
            path_="/welcome.html";

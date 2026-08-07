@@ -2,6 +2,9 @@
 #include "httprequest.h"
  #include "log.h"
 #include "session.h"
+#include "upload.h"
+#include <fcntl.h>
+#include <filesystem>
 #include <netinet/in.h>
 #include <string>
 #include <strings.h>
@@ -13,6 +16,7 @@
 #include <errno.h>    
 #include <algorithm>
 #include <cstring>
+#include <unistd.h>
 #include <utility>
  bool HttpConn::isET;
  const char* HttpConn::srcDir;
@@ -37,13 +41,17 @@ void HttpConn::init(int sockFd, const sockaddr_in& addr){
     userCount++;
        fd_=sockFd;
        addr_=addr;
-       readBuff_.RetrieveAll();
-       writeBuff_.RetrieveAll();
+       //释放扩展的缓冲区大小
+       readBuff_={};
+       writeBuff_={};
        //response_.UnmapFile();
        request_.Init();
        keepAlive_=false;
        iovCnt_=0;
-    
+        //这2个的要是否资源因为下一次报文不一定与文件有关
+        authuser.init();
+        file.init();
+
        std::memset(iov_,0,sizeof(iov_));
        isClose_=false;
        LOG_INFO("Client[%d](%s:%d) in,usercout:%d",fd_,GetIP(),addr_.sin_port,(int)userCount);
@@ -98,6 +106,8 @@ sockaddr_in HttpConn::GetAddr() const{
 void HttpConn::process(){
      
      auto result=request_.parse(readBuff_);
+     //将所有的剩余数据调到前方，用来控制缓存区大小
+     readBuff_.adjust_pos();
      //这里返回的是process的状态，让reactor知道是该读写，登录/注册，上传，下载
      switch (result) {
         case  HttpRequest::ParseResult::Incomplete:
@@ -109,6 +119,15 @@ void HttpConn::process(){
               return;       
         case  HttpRequest::ParseResult::Upload:
               sta= ProcessResult::Upload;
+              if (!file.inited) {
+                 file.inited=true;
+                 request_.paraFile(file);
+                 //文件重传
+                 if (!file.init_fileds()) {
+                    break;
+                 }
+              }
+              sta=ProcessResult::Upload;
               return;
         case  HttpRequest::ParseResult::Download:
               sta= ProcessResult::Download;
@@ -137,7 +156,12 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
            code=413;
            readBuff_.RetrieveAll();
      }
-     else {
+     else if (sta==HttpRequest::ParseResult::UploadErroe||sta==HttpRequest::ParseResult::DownloadErroe) {
+            path="/400.html";
+           code=500;
+           readBuff_.RetrieveAll();
+     }else{
+        //badquestion
            path="/400.html";
            code=400;
            readBuff_.RetrieveAll();
@@ -235,4 +259,75 @@ ssize_t HttpConn::write(int* saveErrno){
         }
      }while (isET||ToWriteBytes()>10240);
      return len;
+}
+
+//  bool HttpConn::upload_file(int file_fd){
+//        //因为结束符不一定是连贯的
+//        int safe_size=readBuff_.ReadableBytes();
+//        bool is_end=std::string(readBuff_.BeginWrite()-safe_size,readBuff_.BeginWrite())=="--"+request_.GetPost("boundary")+"--";
+//        if (!is_end) {
+//               //最极限时只有一个没到
+//               safe_size-=4+request_.GetPost("boundary").size()+1;
+//        }
+//        file.incr_ready_write_size(safe_size);
+//        int saveErrno=0;
+//        int len=readBuff_.WriteFd(file_fd, saveErrno, safe_size);
+//        file.incr_writed_size(len);
+//        //此时分为不是end且是否写完，是end是否写完
+//        if (!is_end) {
+//          //不是end且是否写完都needread
+//            return false;
+//        }else if (is_end&&len!=safe_size) {
+//             //是end但是没有写完
+            
+//        }{
+       
+//        }
+//  }
+//  ProcessResult HttpConn::handle_upload_file(){
+//         if (!std::filesystem::is_directory("data/tmp")) {
+//              std::filesystem::create_directory("data/tmp");
+//         }
+//         //返回值可以有成功，失败，文件重传
+//         std::string tmp_file("data/tmp"+std::to_string(file.get_user_id())+"_"+file.get_filename());
+//        int file_fd=::open(
+//          tmp_file.c_str(), 
+//          O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
+//           0600);
+//        //  O_WRONLY   只写
+//        // O_CREAT    文件不存在就创建
+//        // O_EXCL     文件已存在则失败，避免覆盖
+//         // O_CLOEXEC  exec 时自动关闭
+//           // 0600       只有服务器进程所属用户可读写
+//         bool ret=upload_file(file_fd);
+//  }
+void HttpConn:: Parseauth(){
+       request_.paraAuth(authuser);
+}
+void HttpConn::ParseFile() {
+    request_.paraFile(file);
+}
+ //查询或插入
+bool HttpConn::SqlQuary(){
+     return authuser.SqlQuary();
+}
+//加密或验证
+bool HttpConn::ar_hash_and_versity(){ 
+    return  authuser.ar_hash_and_versity();
+}
+ bool HttpConn::is_login(){
+     return authuser.getIslogin();
+ }
+ void HttpConn::is_success(){
+    request_.is_success();
+ }
+ bool HttpConn::IsKeepAlive() const {
+     return keepAlive_;
+}
+bool HttpConn:: versityToken(){
+    return  Session::Intense()->versityToken(request_.GetPost("cookies"),file.get_user_id());
+}
+Upload HttpConn ::handle_upload_file(){
+     return  file.handle_upload_file(readBuff_);
+
 }

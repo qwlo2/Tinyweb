@@ -105,8 +105,32 @@ eventfd_read、eventfd_write
 blockdeque的内部有了cv和mutex，因此在sqlpool中其实不用semid和锁
 
 云盘：
-文件表：user_id,user_name,file_id,file_name,file_size
-用户表：user_id,username,pwd（哈希加密后的）
+文件表：
+user_id,
+file_id（自动增长）,
+file_name（逻辑名字）,
+object——id
+
+用户表：
+user_id(这个通过mysql的自动增长实现),
+username,
+pwd（哈希加密后的）
+
+物理存储表
+CREATE TABLE object (
+    object_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+    content_hash CHAR(64) NOT NULL,
+
+    file_size BIGINT UNSIGNED NOT NULL,
+
+    storage_path VARCHAR(512) NOT NULL,
+
+    ref_count BIGINT UNSIGNED NOT NULL DEFAULT 1,
+
+    UNIQUE KEY uk_content_hash(content_hash)
+);
+
 通过cookies来区分用户，不能明文传输user-id，不然无法区分攻击报文，先登录然后返回cookies，然后存储cookies和user-id的对应
 每次的http报文都含有cookies，在服务器进行user-id的查询，session层在webserver，通过单例模式让其他的调用，登录/注册的响应报文要加上这个
 
@@ -126,6 +150,7 @@ httprequst和httpcoon状态增加upload，download，conn的sta让subreactor知�
 auth：reactor调用auth-io和sql-io，handleAuth
 upload：调用file-io，sql-io，handleUpload
 download：调用file-io，sql-io，handeldowanload
+httpconn:下辖upload，suth
 
 普通的bode解析以及登录的操作依旧是之前的逻辑
 
@@ -135,3 +160,25 @@ download：调用file-io，sql-io，handeldowanload
 dlownload，解析按普通逻辑，报文按file makeresponse流式传输
 
 对上传报文的非数据部分的解析已经完成，明天完成文件的传输（落盘以及元数据的存储，还有cookies，应该是根据cookies来判断用户）
+
+
+buffer:
+对vector<char>的封装，每次可写的大小为size-wpos,由于readv是线性读，只会一直向后，因此需要iov[2]
+每次读时都将iov[0]的大小设置为size-wpos，另一片为临时缓存区，根据返回的len，小于size-wpos则将wpos向后移动len，
+大于size-wpos则apeend（len），先判断是否大于可写，大于则扩充为刚好放下len的大小，小于直接加入。
+由于在解析报文时可能没有解析完，因此wpos和rpos都不会变为0，因此存在空间浪费的问题，
+retive当pos相等时置为0可以缓解这个问题，当报文解析完成必然重新开始
+
+httpconn：
+readv，采用buffer和缓冲区
+writev，才让buffer+mmap文件
+因此buffer的write没有用，可以用来作为upload的write
+
+upload:
+    初始化file——fd，evp-md-ctx*,每次通过writfd进行写，错误直接返回错误响应报文，写完后
+通过evp-md-ctx*调用evp-digestupdata-ctx进行增量sha256，错误则evp-md-ctx-free释放资源，当文件上传完毕
+会通过fsnyc落盘，随后通过evp-digestfina-ctx获取增量hash的结果，创建/objext/ab/cd/hash-hex的目录
+在获取file-fd，通过这个进行renameat，普通的reaname会覆盖文件，这个只会返回，随后在落盘file-fd对目录项的改变
+新文件：则新增object  重复文件：增加object的引用数量
+采用on duplicate KEY updata 当key为唯一索引则冲突就执行后面的updata
+这样就不用处理A,B同时上传一个文件是对数据库的同步

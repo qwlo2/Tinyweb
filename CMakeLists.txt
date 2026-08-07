@@ -28,6 +28,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(Tinywebserver)
 
+find_package(OpenSSL REQUIRED)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -66,5 +68,5 @@ target_link_libraries(Tinywebserver PRIVATE
     mysqlclient
     argon2
     hiredis
-    crypto
+    OpenSSL::Crypto
 )
