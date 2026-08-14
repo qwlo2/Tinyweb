@@ -3,8 +3,8 @@
  #include "log.h"
 #include "session.h"
 #include "upload.h"
+#include <cerrno>
 #include <fcntl.h>
-#include <filesystem>
 #include <netinet/in.h>
 #include <string>
 #include <strings.h>
@@ -118,12 +118,13 @@ void HttpConn::process(){
               response_.set_has_cookies(true);
               return;       
         case  HttpRequest::ParseResult::Upload:
-              sta= ProcessResult::Upload;
+             // sta= ProcessResult::;
               if (!file.inited) {
                  file.inited=true;
                  request_.paraFile(file);
-                 //文件重传
-                 if (!file.init_fileds()) {
+                 //文件重传，验证失败
+                 if (!file.init_fileds()||!versityToken()) {
+                    result=HttpRequest::ParseResult::UploadError;
                     break;
                  }
               }
@@ -156,7 +157,7 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
            code=413;
            readBuff_.RetrieveAll();
      }
-     else if (sta==HttpRequest::ParseResult::UploadErroe||sta==HttpRequest::ParseResult::DownloadErroe) {
+     else if (sta==HttpRequest::ParseResult::UploadError||sta==HttpRequest::ParseResult::DownloadErroe) {
             path="/400.html";
            code=500;
            readBuff_.RetrieveAll();
@@ -325,9 +326,26 @@ bool HttpConn::ar_hash_and_versity(){
      return keepAlive_;
 }
 bool HttpConn:: versityToken(){
+    //传进去user_id，通过这个获取
     return  Session::Intense()->versityToken(request_.GetPost("cookies"),file.get_user_id());
 }
 Upload HttpConn ::handle_upload_file(){
-     return  file.handle_upload_file(readBuff_);
-
+     //由于是ET下，因此要一直读到ReadyWrite或者缓冲区完
+     Upload res;
+    while (true) {
+     res=std::move( file.handle_upload_file(readBuff_));
+     if (res==Upload::UploadError||res==Upload::ReadyWrite) {
+             return  res;
+     }
+     int errno_=0;
+     int ret=read(&errno_);
+     //缓冲区读完
+     if (ret<0&&(errno_==EWOULDBLOCK||errno_==EAGAIN)) {
+            return  res;
+     }else if (ret>0) {
+           continue;
+     }else {
+       return  Upload::UploadError;
+     }
+    }
 }

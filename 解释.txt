@@ -110,6 +110,16 @@ user_id,
 file_id（自动增长）,
 file_name（逻辑名字）,
 object——id
+(访问权限)
+CREATE TABLE user_file (
+    file_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    object_id BIGINT UNSIGNED NOT NULL,
+
+    KEY idx_user_id(user_id),
+    KEY idx_object_id(object_id)
+);
 
 用户表：
 user_id(这个通过mysql的自动增长实现),
@@ -182,3 +192,10 @@ upload:
 新文件：则新增object  重复文件：增加object的引用数量
 采用on duplicate KEY updata 当key为唯一索引则冲突就执行后面的updata
 这样就不用处理A,B同时上传一个文件是对数据库的同步
+
+2个问题：一时验证redis时什么时候，第一次报文到达验证还是每一次都验证二时et模式下如果没有新报文会直接卡住，因此要一直读。知道缓冲区没了且
+还没完时才needred
+
+redis：
+一是验证cookies，每个htttp请求只需要一次，在初始化file的filed时进行刚好
+二是获取cookies，通过getrandom获取256bit，然后通过base64换成16进制的字符（6位一个，即3个字节4个字符）

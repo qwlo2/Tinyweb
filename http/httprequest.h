@@ -27,7 +27,7 @@ public:
         Complete,//普通的body
         NeedAuth,//登录
         Upload,//上传
-        UploadErroe,
+        UploadError,
         Download,//下载
         DownloadErroe
     };

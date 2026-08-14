@@ -2,6 +2,7 @@
 #include "buffer.h"
 #include "sqlconnpool.h"
 #include <cstddef>
+#include <cstdint>
 #include <fcntl.h>
 #include <filesystem>
 #include <iomanip>
@@ -86,9 +87,11 @@ std::string& UploadFile::get_boundary(){
  //页缓存是内核维护的、可回写和可回收的中间缓冲。当磁盘跟不上时，
  // 内核会让 write() 变慢，从而把压力逐层传回网络端。因此即便 write() 后数据暂时还在内存中，整个上传依然是流式的。
 Upload UploadFile::handle_upload_file(Buffer& readBuff_){
-       auto  ret=std::move(upload_file(file_fd,readBuff_));
+    
+         auto  ret=std::move(upload_file(file_fd,readBuff_));
        //将剩余的移动到前方，防止缓冲区无线扩大
        readBuff_.adjust_pos();
+       //上传完毕
        if (ret==Upload::ReadyWrite) {
           //rename,sync
           std::string hash_hex;
@@ -111,10 +114,11 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
               return Upload::UploadError;
           }
        }else if (ret==Upload::UploadError ) {
+        //失败
            EVP_MD_CTX_free(hash_ctx_);
              close(file_id);
        }
-       return  ret;
+      
  }
  bool UploadFile::init_fileds(){
      //增量hash初始化
@@ -218,12 +222,19 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
     if (dir_fd == -1) {
          return false;
    }
-
+   //将目录修改落盘
     if (::fsync(dir_fd) == -1) {
     ::close(dir_fd);
     return false;
    }
+   //fsync(fd)
+// → 同步一个文件
 
+// syncfs(fd)
+// → 同步 fd 所在的整个文件系统
+
+// sync()
+// → 同步系统里所有挂载文件系统的脏数据
    ::close(dir_fd);
     if (ret == 0&& add_or_increment_object(fina_path)) {
         return true;
@@ -238,26 +249,76 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
     return false;
  }
 
- //增加object或者引用数量
+ // 在同一事务中增加物理对象引用，并建立用户逻辑文件记录。
  bool UploadFile::add_or_increment_object(std::filesystem::path& final_path){
-    auto mysql_=std::move(SqlConnPool::Instance()->GetConn());
-      const std::string content_hash =
-        final_path.filename().string();
+    auto mysql_ = SqlConnPool::Instance()->GetConn();
+    if (!mysql_ || user_id == static_cast<size_t>(-1) ||
+        get_filename().empty()) {
+        return false;
+    }
 
-    const std::string storage_path =
-        final_path.string();
+    MYSQL* connection = mysql_.get();
+    const std::string content_hash = final_path.filename().string();
+    const std::string storage_path = final_path.string();
+    const std::string file_name = get_filename();
 
-    std::string sql =
+    if (mysql_query(connection, "START TRANSACTION") != 0) {
+        return false;
+    }
+
+    const std::string object_sql =
         "INSERT INTO object "
         "(content_hash, file_size, storage_path, ref_count) "
-        "VALUES ('" +
-        content_hash + "', " +
-        std::to_string(writed_size) + ", '" +
-        storage_path + "', 1) "
+        "VALUES ('" + content_hash + "', " +
+        std::to_string(writed_size) + ", '" + storage_path + "', 1) "
         "ON DUPLICATE KEY UPDATE "
+        "object_id = LAST_INSERT_ID(object_id), "
         "ref_count = ref_count + 1";
+   //object_id = LAST_INSERT_ID(object_id)会将LAST_INSERT_ID设置object_id
+   //随后返回object_id，这样mysql_insert_id就可以获得当前的会将LAST_INSERT_ID设置object_id
+    if (mysql_query(connection, object_sql.c_str()) != 0) {
+        mysql_rollback(connection);
+        return false;
+    }
 
-    if (mysql_query(mysql_.get(), sql.c_str()) != 0) {
+    // 新对象返回自增 ID；重复对象通过 LAST_INSERT_ID(object_id)
+    // 返回已有对象的 ID。
+    std::uint64_t object_id =
+        static_cast<std::uint64_t>(mysql_insert_id(connection));
+    if (object_id == 0) {
+        mysql_rollback(connection);
+        return false;
+    }
+
+    const std::string file_sql =
+        "INSERT INTO `file` (user_id, file_name, object_id) "
+        "VALUES (" + std::to_string(user_id) + ", ?, " +
+        std::to_string(object_id) + ")";
+
+    MYSQL_STMT* file_stmt = mysql_stmt_init(connection);
+    if (!file_stmt) {
+        mysql_rollback(connection);
+        return false;
+    }
+
+    unsigned long file_name_len =
+        static_cast<unsigned long>(file_name.size());
+
+    MYSQL_BIND file_param{};
+    file_param.buffer_type = MYSQL_TYPE_STRING;
+    file_param.buffer = const_cast<char*>(file_name.data());
+    file_param.buffer_length = file_name_len;
+    file_param.length = &file_name_len;
+
+    const bool file_ok =
+        mysql_stmt_prepare(file_stmt, file_sql.c_str(),
+                           static_cast<unsigned long>(file_sql.size())) == 0 &&
+        mysql_stmt_bind_param(file_stmt, &file_param) == 0 &&
+        mysql_stmt_execute(file_stmt) == 0;
+    mysql_stmt_close(file_stmt);
+
+    if (!file_ok || mysql_commit(connection) != 0) {
+        mysql_rollback(connection);
         return false;
     }
 

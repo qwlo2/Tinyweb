@@ -174,10 +174,10 @@ std::string HttpRequest::getversion() const{
            (path_ == "/login.html" || path_ == "/register.html")) {
           return ParseResult::NeedAuth;
       }
-      if (method_== "POST" &&path_ == "/file.html") {
+      if (method_== "POST" &&path_ == "/file") {
               return ParseResult::Upload;
       }
-      if (method_=="GET"&&path_=="/file.html") {
+      if (method_=="GET"&&path_=="/file") {
             return  ParseResult::Download;
       }
       return  ParseResult::Complete;
@@ -353,7 +353,9 @@ void HttpRequest::ParsePath_(){
     if(path_=="/"){
         path_="/index.html";
     }
-    else {
+    else if (path_=="file") {
+        return;
+    }else {
          std::string tempPath = path_ + ".html";
         for(auto &i:DEFAULT_HTML){
               if("/"+i==tempPath){  
