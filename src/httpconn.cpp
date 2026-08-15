@@ -1,9 +1,11 @@
  #include "httpconn.h"
+#include "download.h"
 #include "httprequest.h"
  #include "log.h"
 #include "session.h"
 #include "upload.h"
 #include <cerrno>
+#include <cstddef>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <string>
@@ -48,9 +50,10 @@ void HttpConn::init(int sockFd, const sockaddr_in& addr){
        request_.Init();
        keepAlive_=false;
        iovCnt_=0;
-        //这2个的要是否资源因为下一次报文不一定与文件有关
+        //这3个的要是否资源因为下一次报文不一定与文件有关
         authuser.init();
         file.init();
+        d_file.init();
 
        std::memset(iov_,0,sizeof(iov_));
        isClose_=false;
@@ -123,7 +126,7 @@ void HttpConn::process(){
                  file.inited=true;
                  request_.paraFile(file);
                  //文件重传，验证失败
-                 if (!file.init_fileds()||!versityToken()) {
+                 if (!file.init_fileds()||!versityToken(file.get_user_id())) {
                     result=HttpRequest::ParseResult::UploadError;
                     break;
                  }
@@ -131,6 +134,12 @@ void HttpConn::process(){
               sta=ProcessResult::Upload;
               return;
         case  HttpRequest::ParseResult::Download:
+             if (!versityToken(d_file.get_userid())) {
+                  result=HttpRequest::ParseResult::DownloadError;
+                    break;
+             } 
+             d_file.inited=true;
+             response_.set_isdownload(true);
               sta= ProcessResult::Download;
               return;   
         default:
@@ -157,7 +166,7 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
            code=413;
            readBuff_.RetrieveAll();
      }
-     else if (sta==HttpRequest::ParseResult::UploadError||sta==HttpRequest::ParseResult::DownloadErroe) {
+     else if (sta==HttpRequest::ParseResult::UploadError||sta==HttpRequest::ParseResult::DownloadError) {
             path="/400.html";
            code=500;
            readBuff_.RetrieveAll();
@@ -180,8 +189,11 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
         //path也要更换
         //has——cookies=false
         //  }
-        response_.set_cookies(tokens.value());
+        response_.set_filed("cookies",tokens.value());
          response_.MakeResponse(writeBuff_);
+    }else if (response_.get_isdownload()) {
+          response_.set_filed(" filename",d_file.get_filename());
+          response_.set_filed("Content-Length: ",std::to_string(d_file.get_content_length()));
     }else {
         //普通报文
          response_.MakeResponse(writeBuff_);
@@ -325,9 +337,9 @@ bool HttpConn::ar_hash_and_versity(){
  bool HttpConn::IsKeepAlive() const {
      return keepAlive_;
 }
-bool HttpConn:: versityToken(){
+bool HttpConn:: versityToken(size_t& user_id){
     //传进去user_id，通过这个获取
-    return  Session::Intense()->versityToken(request_.GetPost("cookies"),file.get_user_id());
+    return  Session::Intense()->versityToken(request_.GetPost("cookies"),user_id);
 }
 Upload HttpConn ::handle_upload_file(){
      //由于是ET下，因此要一直读到ReadyWrite或者缓冲区完
@@ -348,4 +360,28 @@ Upload HttpConn ::handle_upload_file(){
        return  Upload::UploadError;
      }
     }
+}
+DownloadResult HttpConn::handle_down(){
+    if (d_file.inited) {
+          //先打开文件，来判断响应报文的code
+     if (!d_file.openfile()) {
+        makeResponse(HttpRequest::ParseResult::DownloadError);
+        //needwrite代表等待缓冲区，其他的直接写
+        return  DownloadResult::Error;
+     }
+     makeResponse(HttpRequest::ParseResult::Download);
+     while (true) {
+        int errno_=0;
+     int ret=write(&errno_);
+     //缓冲区读完
+     if (ret<0&&(errno_==EWOULDBLOCK||errno_==EAGAIN)) {
+            return  DownloadResult::NeedWrite;
+     }else if (ret>0) {
+           continue;
+     }else {
+       return  DownloadResult::Error;
+     }
+     }
+    }
+    return  d_file.handle_down(fd_);
 }

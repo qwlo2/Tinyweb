@@ -29,7 +29,7 @@ public:
         Upload,//上传
         UploadError,
         Download,//下载
-        DownloadErroe
+        DownloadError
     };
     // size_t& get_userid();s
     // std::string get_filename();
@@ -61,7 +61,7 @@ public:
            path_="/welcome.html";
     }
     ParseResult rece_uploadfile();
-  ParseResult  parseResult() const;
+  ParseResult  parseResult() ;
 
 private:
     ParseResult ParseRequestLine_(const std::string& line);//行

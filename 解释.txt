@@ -111,7 +111,7 @@ file_id（自动增长）,
 file_name（逻辑名字）,
 object——id
 (访问权限)
-CREATE TABLE user_file (
+CREATE TABLE file (
     file_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
     file_name VARCHAR(255) NOT NULL,
@@ -199,3 +199,10 @@ upload:
 redis：
 一是验证cookies，每个htttp请求只需要一次，在初始化file的filed时进行刚好
 二是获取cookies，通过getrandom获取256bit，然后通过base64换成16进制的字符（6位一个，即3个字节4个字符）
+
+download：
+先打开文件，根据结果判断响应报文时download还是downloaderror，然后开始循坏发送file
+由于采用sendfile，因此writebuf被放弃，全程不经过onwrite，直接在handle-down处理
+
+对于epollin的fd，当client断开连接，会有eof信号，可读并关闭
+epollout同理返回epollhup/epollrr

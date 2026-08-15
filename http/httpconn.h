@@ -1,10 +1,12 @@
 #pragma once
 #include "Auth.h"
 #include "buffer.h"
+#include "download.h"
 #include "httprequest.h"
 #include "httpresponse.h"
 #include "session.h"
 #include "upload.h"
+#include <cstddef>
 #include <mutex>
 #include <netinet/in.h>
 enum class ProcessResult {
@@ -53,6 +55,7 @@ public:
      //文件上传
      bool upload_file(int file_fd);
       Upload handle_upload_file();
+      DownloadResult handle_down();
 
     void makeResponse(HttpRequest::ParseResult  sta);
     int ToWriteBytes() const {
@@ -64,7 +67,7 @@ public:
     }
 
     bool IsKeepAlive() const ;
-    bool  versityToken();
+    bool  versityToken(size_t& user_id);
 
     static bool isET;
      static const char* srcDir;
@@ -92,4 +95,5 @@ private:
     Auth authuser;
     //文件下载上传
     UploadFile file;
+    Download d_file;
 };

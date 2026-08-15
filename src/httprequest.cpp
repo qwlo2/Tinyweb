@@ -169,7 +169,7 @@ std::string HttpRequest::getmethod() const{
 std::string HttpRequest::getversion() const{
     return version_;
 }
- HttpRequest::ParseResult HttpRequest::parseResult() const{
+ HttpRequest::ParseResult HttpRequest::parseResult() {
       if ( method_ == "POST" &&
            (path_ == "/login.html" || path_ == "/register.html")) {
           return ParseResult::NeedAuth;
@@ -177,7 +177,11 @@ std::string HttpRequest::getversion() const{
       if (method_== "POST" &&path_ == "/file") {
               return ParseResult::Upload;
       }
-      if (method_=="GET"&&path_=="/file") {
+      if (method_=="GET"&&path_.starts_with("/file")) {
+           file_filed.emplace_back(path_.substr(6));
+           if (header_.contains("range")) {
+                 file_filed.emplace_back(header_["range"]);
+           }
             return  ParseResult::Download;
       }
       return  ParseResult::Complete;
@@ -353,7 +357,7 @@ void HttpRequest::ParsePath_(){
     if(path_=="/"){
         path_="/index.html";
     }
-    else if (path_=="file") {
+    else if (!DEFAULT_HTML.contains(path_)) {
         return;
     }else {
          std::string tempPath = path_ + ".html";

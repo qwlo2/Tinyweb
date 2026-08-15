@@ -1,4 +1,5 @@
 #include "acceptor.h"
+#include "download.h"
 #include "epoll.h"
 #include "eventloop.h"
 #include "heaptimer.h"
@@ -221,13 +222,63 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
                                                  }
                                                  ep->ModFd(fd, EPOLLOUT | event); 
                                          });
+                                         LOG_DEBUG("download Error")
                                    });
                                    break;
                 }
        });
  }
   void eventloop::hadleDownload(int fd,const std::shared_ptr<HttpConn>& conn){
-
+           ThreadPool::init_File()->AddTask([fd,this,&conn](){
+                auto ret=std::move(conn->handle_down());
+                switch (ret) {
+                    case DownloadResult::NeedWrite:
+                                   ThreadPool::init_io()->AddTask([fd,this,&conn](){
+                                         push_and_do_task([this, fd, &conn]() {
+                                               if (!isCurrentConnection(fd, conn)) {
+                                                       return;
+                                                 }
+                                                 ep->ModFd(fd, EPOLLOUT | event); 
+                                         });
+                                   });
+                                   break;
+                    case DownloadResult::Finished:
+                                          //当返回只为0，写完
+                                       if (conn->IsKeepAlive()) {
+                                          ThreadPool::init_io()->AddTask([this, fd,conn]() {
+                                           //半包和刚好一个的情况已经处理，如果此时是黏包，应该直接进行解析
+                                                conn->process();
+                                              if (conn->sta==ProcessResult::NeedRead ) {
+                                                 push_and_do_task([this, fd, conn]() {
+                                                    if (!isCurrentConnection(fd, conn)) {
+                                                          return;
+                                                        }
+                                                    ep->ModFd(fd,EPOLLIN|event);
+                                                });
+                     
+                                             }else if (conn->sta==ProcessResult::NeedAuth) {
+                                                      handleAuth(fd, conn);
+                                            } else {                    
+                                                    push_and_do_task([this, fd, conn]() {
+                                                       if (!isCurrentConnection(fd, conn)) {
+                                                                  return;
+                                                       }
+                                                         ep->ModFd(fd,EPOLLOUT|event);
+                                                      });            
+                    
+                                                     }
+                                                 });
+                                           return ;
+                                      }
+                                   break;
+                    case DownloadResult::Error:
+                                        push_and_do_task([this, fd, &conn] {
+                                            if (isCurrentConnection(fd, conn)) {
+                                                      closeconn(fd);
+                                             }
+                                          });
+                }
+       });
   }
 void eventloop::DealRead(int fd){
      if (!httpcoon.contains(fd)) {

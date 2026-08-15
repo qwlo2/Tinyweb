@@ -58,14 +58,24 @@ void HttpResponse::Init(const std::string& srcDir, std::string& path,
     srcDir_ = srcDir;
     path_ = path;
     has_cookies=false;
-    cookies={};
+    is_download=false;
+    fileds={};
 }
-
+void HttpResponse::set_isdownload(bool res){
+      is_download=res;
+}
+void HttpResponse::set_filed(std::string name,std::string filed){
+     fileds.emplace(name,filed);
+}
+void HttpResponse::set_filed(char* name,char* filed){
+    fileds.emplace(name,filed);
+}
 void HttpResponse::UnmapFile() {
     file_.reset();
 }
 
 char* HttpResponse::getFile() {
+    
     return file_
         ? const_cast<char*>(file_->Data())
         : nullptr;
@@ -134,11 +144,16 @@ void HttpResponse::AddHeader_(Buffer &buff){
     }
     if (has_cookies) {
        
-       buff.Append("Set-Cookie:"+cookies+"\r\n");
+       buff.Append("Set-Cookie:"+fileds["cookies"]+"\r\n");
     }
     buff.Append("Content-type:"+GetFileType_()+"\r\n");
 }
 void HttpResponse::AddContent_(Buffer &buff){//获取file.size
+    if (is_download) {
+        buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
+        buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
+        return;
+    }
      if(!file_){
         ErrorContent(buff,"File NotFound");
         return;
