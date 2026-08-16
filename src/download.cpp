@@ -10,9 +10,11 @@ void Download::parase_filed(std::list<std::string>& list){
     filename=list.front();
     if (list.size()>1) {
         auto tmp=list.back();
-        //range:start-
-        //range:start-end
-       offset=std::stoi(tmp.substr(0,tmp.size()-1));
+        //range:byte=start-
+        //range:byte=start-end
+        auto pos=tmp.find_first_of("=");
+       //b=1-
+       offset=std::stoi(tmp.substr(pos+1,tmp.size()-pos-2));
     }
 }
  void Download::init(){
@@ -33,9 +35,9 @@ bool   Download::openfile(){
      if (!sql ) {
        return false;
      }
-       std::string query="SELECT file_size,storage_path,content_hash from object"
+       std::string query="SELECT file_size,storage_path,content_hash from object "
                          "where object_id=("
-                        " SELECT object_id from file where  user_id"+std::to_string(user_id)+"and file_name=?)";
+                        " SELECT object_id from file where  user_id="+std::to_string(user_id)+" and file_name=?)";
             auto stmt=mysql_stmt_init(sql.get());
         if (!stmt) {
               return false;
@@ -61,14 +63,14 @@ bool   Download::openfile(){
          }
        // auto rel=mysql_stmt_bind_result(MYSQL_STMT *stmt, MYSQL_BIND *bnd)
      MYSQL_BIND result[3]{};
-     result[1].buffer_type=MYSQL_TYPE_LONG;
-     result[1].buffer=&file_size;
+     result[0].buffer_type=MYSQL_TYPE_LONG;
+     result[0].buffer=&file_size;
      
      unsigned long pathsize=64;
-     result[2].buffer_type=MYSQL_TYPE_STRING;
-     result[2].buffer=&file_path;
-     result[2].buffer_length=pathsize;
-     result[2].length=&pathsize;
+     result[1].buffer_type=MYSQL_TYPE_STRING;
+     result[1].buffer=&file_path;
+     result[1].buffer_length=pathsize;
+     result[1].length=&pathsize;
 
     unsigned long hashsize=64;
      result[2].buffer_type=MYSQL_TYPE_STRING;
@@ -117,9 +119,11 @@ bool   Download::openfile(){
     size_t count = std::min(CHUNK_SIZE, remain);
 
         ssize_t n = ::sendfile(sockfd, fileFd, &offset_, count);
-
+        //保存offset状态
+        offset=offset_;
         if (n > 0) {
-          offset_ += n;
+          //当 offset 参数非空时，sendfile() 本身会更新
+         // offset_ += n;
           sent_this_time+=n;
           continue;
         }

@@ -124,7 +124,7 @@ void HttpConn::process(){
              // sta= ProcessResult::;
               if (!file.inited) {
                  file.inited=true;
-                 request_.paraFile(file);
+                 request_.para_up_File(file);
                  //文件重传，验证失败
                  if (!file.init_fileds()||!versityToken(file.get_user_id())) {
                     result=HttpRequest::ParseResult::UploadError;
@@ -138,6 +138,7 @@ void HttpConn::process(){
                   result=HttpRequest::ParseResult::DownloadError;
                     break;
              } 
+            request_.para_down_File(d_file);
              d_file.inited=true;
              response_.set_isdownload(true);
               sta= ProcessResult::Download;
@@ -177,10 +178,6 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
            readBuff_.RetrieveAll();
      }
 
-     // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
-     request_.Init();
-     //只有403在MakeResponse中用读权限判断给出
-     response_.Init(srcDir,path,keepAlive_,code);
      //登录/注册
     if (response_.get_has_cookies()) {
          auto tokens=std::move( Session::Intense()->gettoken(request_.GetPost("username"))); 
@@ -198,6 +195,11 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
         //普通报文
          response_.MakeResponse(writeBuff_);
     }
+    // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
+     request_.Init();
+     //只有403在MakeResponse中用读权限判断给出
+     response_.Init(srcDir,path,keepAlive_,code);
+
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
      iovCnt_=1;
@@ -318,7 +320,7 @@ void HttpConn:: Parseauth(){
        request_.paraAuth(authuser);
 }
 void HttpConn::ParseFile() {
-    request_.paraFile(file);
+    request_.para_up_File(file);
 }
  //查询或插入
 bool HttpConn::SqlQuary(){
@@ -339,7 +341,7 @@ bool HttpConn::ar_hash_and_versity(){
 }
 bool HttpConn:: versityToken(size_t& user_id){
     //传进去user_id，通过这个获取
-    return  Session::Intense()->versityToken(request_.GetPost("cookies"),user_id);
+    return  Session::Intense()->versityToken(request_.Getheader("cookie"),user_id);
 }
 Upload HttpConn ::handle_upload_file(){
      //由于是ET下，因此要一直读到ReadyWrite或者缓冲区完
@@ -382,6 +384,7 @@ DownloadResult HttpConn::handle_down(){
        return  DownloadResult::Error;
      }
      }
+     d_file.inited=false;
     }
     return  d_file.handle_down(fd_);
 }

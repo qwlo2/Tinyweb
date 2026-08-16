@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include "Auth.h"
 #include "buffer.h"
+#include "download.h"
 #include "upload.h"
 
 class HttpRequest {
@@ -46,9 +47,12 @@ public:
     std::string getversion() const;
     std::string GetPost(const std::string& key) const;
     std::string GetPost(const char* key) const;
-    
+     std::string Getheader(const std::string& key) const;
+    std::string Getheader(const char* key) const;
+
     void paraAuth(Auth& auther);
-    void paraFile(UploadFile& filer);
+    void para_up_File(UploadFile& filer);
+    void para_down_File(Download& filer);
 
     bool IsKeepAlive() const;
 

@@ -33,6 +33,9 @@ class Buffer{
     void Append(const char* str, size_t len);
     void Append(const void* data, size_t len);
     void Append(const Buffer& buff);
+    //以peek为起始的pos
+    std::string::size_type find_of_first(std::string& res);
+     std::string::size_type find_of_first(const char* res);
 
     ssize_t ReadFd(int fd, int* saveErrno);
     bool WriteFd(int fd, int&  len);

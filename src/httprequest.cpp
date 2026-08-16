@@ -9,10 +9,11 @@
 #include <mysql/mysql.h>
 #include <string>
 #include <utility>
+#include "download.h"
 #include "log.h"
 
 const std::unordered_map<std::string,int >   HttpRequest::DEFAULT_HTML_TAG{
-         {"/register.html",0} ,{"/login.html",1},{"/file.html",2}
+         {"/register.html",0} ,{"/login.html",1},{"/file",2}
 };
  
 const std::unordered_set<std::string> HttpRequest::DEFAULT_HTML{
@@ -199,7 +200,19 @@ std::string HttpRequest::GetPost(const std::string& key) const{
     }
     return "";
 }
-    
+    std::string HttpRequest::Getheader(const char* key) const{
+   // assert(key != nullptr);
+    if(post_.contains(key) ) {
+        return post_.find(key)->second;
+    }
+    return "";
+}
+std::string HttpRequest::Getheader(const std::string& key) const{
+        if(post_.contains(key) ) {
+        return post_.find(key)->second;
+    }
+    return "";
+}
 bool HttpRequest::IsKeepAlive() const{
      std::string connection;
 
@@ -260,16 +273,14 @@ HttpRequest::ParseResult HttpRequest::ParseRequestLine_(const std::string& line)
 
 }
 HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
-    const size_t pos=line.find(':');
+     size_t pos=line.find(':');
     if(pos==std::string::npos||pos==0){
         return ParseResult::BadRequest;
     }
-
-    std::string key=line.substr(0,pos);
     //检测k是否标准，不能有空格和tab（其他的也不能，只是没有检测）
     //Cookie: name=qiu; theme=dark，v可以（不能有换行、NUL 和非法控制字符）
     //=时kv的左右2边可以有空格，但是k里面不能有，v可以有
-    key=Trim_(key);
+    std::string key=Trim_(line.substr(0,pos));
     for(char ch:key){
         if(ch==' '||ch=='\t'){
             return ParseResult::BadRequest;
@@ -293,15 +304,34 @@ HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
         }
         contentLength_=len;
         hasContentLength_=true;
-    }
-    //分块传输，即使发送方不知道要发多少就希望边生成数据边发送时，把报文分成多个块
-    else if(lowerKey=="transfer-encoding"){
+    }else if(lowerKey=="transfer-encoding"){
+         //分块传输，即使发送方不知道要发多少就希望边生成数据边发送时，把报文分成多个块
         if(ToLower_(value).find("chunked")!=std::string::npos){
             return ParseResult::BadRequest;
         }
-    }
+    }else if (lowerKey=="content-type") {
+       // Content-Type: multipart/form-data; boundary=----abc123
+        //保持：的位置并找到;的位置
+           int tmp=pos;
+           pos=line.find_first_of(";");
+           value=Trim_(line.substr(tmp,pos-tmp));
+           header_[lowerKey]=value;
+        //保存boundary
+           tmp=pos;
+           pos=line.find_first_of("=");
 
-    header_[key]=value;
+            key=Trim_(line.substr(tmp+1,pos-tmp-1));
+           for (char ch : key) {
+             if (ch == ' ' || ch == '\t') {
+               return ParseResult::BadRequest;
+             }
+           }
+          
+           value=Trim_(line.substr(pos+1));
+           lowerKey=ToLower_(key);
+    }
+ 
+    header_[lowerKey]=value;
     return ParseResult::Complete;
 }
 
@@ -399,15 +429,26 @@ void HttpRequest::ParsePath_(){
                 path_="/error.html";
       }
  }
-void HttpRequest::paraFile(UploadFile& filer){
+void HttpRequest::para_up_File(UploadFile& filer){
   if(method_=="POST"&&(path_=="/file")){
-    int tag=DEFAULT_HTML_TAG.find(path_)->second;
-              LOG_DEBUG("Tag:%d",tag);
+  //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
+             // LOG_DEBUG("upload file:%s",file_filed.);
                 filer.parase_filed(file_filed);
                 filer.get_boundary()=post_["boundary"];
+                 LOG_DEBUG("upload file:%s",filer.get_filename().c_str());
                 path_="/error.html";
   }
 }
+void HttpRequest::para_down_File(Download& filer){
+       if(method_=="GET"&&(path_=="/file")){
+  //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
+             // LOG_DEBUG("upload file:%s",file_filed.);
+                filer.parase_filed(file_filed);
+                 LOG_DEBUG("upload file:%s",filer.get_filename().c_str());
+                path_="/error.html";
+  }
+}
+
 void HttpRequest::ParseBody_(const std::string& line){
     body_=line;
     // JSON、纯文本还有二进制不解析

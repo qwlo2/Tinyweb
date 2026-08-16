@@ -156,9 +156,9 @@ std::optional<std::string> Session::gettoken( const std::string& uesename){
     }
     return cookies;
 }
-bool Session::versityToken(const std::string& cookies,size_t& user_id){
+bool Session::versityToken(const std::string& cookie,size_t& user_id){
        auto redis_sql=std::move(GetConn());
-       std::string token_hash = sha256_hex(cookies);    // 作为 Redis Key
+       std::string token_hash ="session:"+sha256_hex(cookie);    // 作为 Redis Key
        std::string timeout("1800");
        auto reply=static_cast<redisReply*>(
           redisCommand(

@@ -150,11 +150,11 @@ void eventloop::closeconn(int fd){
      it->second->Close();
 }
 //处理登录和注册
-void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
+void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                conn->Parseauth();
               if (conn->is_login()) {
                  //先查后解析arg
-                   ThreadPool::init_Db()->AddTask([this,fd,&conn](){
+                   ThreadPool::init_Db()->AddTask([this,fd,conn](){
                           //失败则直接返回发送error.html
                           if (!conn->SqlQuary()) {
                                Onwrite(fd,conn);
@@ -162,7 +162,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
                           }
                           //成功则直接进行加密/验证
                           ThreadPool::init_Argon2id()->AddTask(
-                              [this, fd, &conn]() {
+                              [this, fd, conn]() {
                                 //通过path是否为welcone界面来判断是否成功
                                    if (conn->ar_hash_and_versity()) {
                                          conn->is_success();
@@ -173,12 +173,12 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
               }else {
                  //注册要先arg再查
                   //失败则直接返回发送error.html
-                 ThreadPool::init_Argon2id()->AddTask([this, fd, &conn]() {
+                 ThreadPool::init_Argon2id()->AddTask([this, fd, conn]() {
                        if (!conn->ar_hash_and_versity()) {
                              Onwrite(fd,conn);
                                return ;
                          }
-                       ThreadPool::init_Db()->AddTask([this,fd,&conn](){
+                       ThreadPool::init_Db()->AddTask([this,fd,conn](){
                                  if (conn->SqlQuary()) {
                                          conn->is_success();
                                    }
@@ -188,12 +188,12 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
 
               }
 }
- void eventloop::hadleUpload(int fd,const std::shared_ptr<HttpConn>& conn){
-       ThreadPool::init_File()->AddTask([fd,this,&conn](){
+ void eventloop::hadleUpload(int fd,const std::shared_ptr<HttpConn> conn){
+       ThreadPool::init_File()->AddTask([fd,this,conn](){
                 auto ret=std::move(conn->handle_upload_file());
                 switch (ret) {
                     case Upload::NeedRead:
-                                   ThreadPool::init_io()->AddTask([fd,this,&conn](){
+                                   ThreadPool::init_io()->AddTask([fd,this,conn](){
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
@@ -203,7 +203,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
                                    });
                                    break;
                     case Upload::ReadyWrite:
-                                       ThreadPool::init_io()->AddTask([fd,this,&conn](){
+                                       ThreadPool::init_io()->AddTask([fd,this,conn](){
                                          conn->makeResponse(HttpRequest::ParseResult::Complete);
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
@@ -214,7 +214,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
                                    });
                                    break;
                     case Upload::UploadError:
-                                       ThreadPool::init_io()->AddTask([fd,this,&conn](){
+                                       ThreadPool::init_io()->AddTask([fd,this,conn](){
                                          conn->makeResponse(HttpRequest::ParseResult::UploadError);
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
@@ -228,13 +228,13 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
                 }
        });
  }
-  void eventloop::hadleDownload(int fd,const std::shared_ptr<HttpConn>& conn){
-           ThreadPool::init_File()->AddTask([fd,this,&conn](){
+  void eventloop::hadleDownload(int fd,const std::shared_ptr<HttpConn> conn){
+           ThreadPool::init_File()->AddTask([fd,this,conn](){
                 auto ret=std::move(conn->handle_down());
                 switch (ret) {
                     case DownloadResult::NeedWrite:
-                                   ThreadPool::init_io()->AddTask([fd,this,&conn](){
-                                         push_and_do_task([this, fd, &conn]() {
+                                   ThreadPool::init_io()->AddTask([fd,this,conn](){
+                                         push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
                                                  }
@@ -272,7 +272,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn>& conn){
                                       }
                                    break;
                     case DownloadResult::Error:
-                                        push_and_do_task([this, fd, &conn] {
+                                        push_and_do_task([this, fd, conn] {
                                             if (isCurrentConnection(fd, conn)) {
                                                       closeconn(fd);
                                              }
@@ -291,11 +291,11 @@ void eventloop::DealRead(int fd){
      ExtentTime_(conn.get());
      Onread(fd, conn);
 }
-void eventloop::Onread(int fd,const std::shared_ptr<HttpConn>& conn){
+void eventloop::Onread(int fd,const std::shared_ptr<HttpConn> conn){
         //先不加入线程池
      //push_and_do_task(std::bind(&eventloop::Onread, this,fd));
     
-     ThreadPool::init_io()->AddTask([this, fd, &conn]() {
+     ThreadPool::init_io()->AddTask([this, fd, conn]() {
        int saveerrno = 0;
        int ret = conn->read(&saveerrno);
        if (ret < 0 && (saveerrno == EAGAIN || saveerrno == EWOULDBLOCK)) {
@@ -335,7 +335,7 @@ void eventloop::Onread(int fd,const std::shared_ptr<HttpConn>& conn){
             return ;
        }
      }else {
-      push_and_do_task([this, fd, &conn] {
+      push_and_do_task([this, fd, conn] {
         if (isCurrentConnection(fd, conn)) {
           closeconn(fd);
         }
@@ -355,7 +355,7 @@ void eventloop::DealWrite(int fd){
    ExtentTime_(conn.get());
    Onwrite(fd, conn);
 }
-void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn>& conn){
+void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
     //写完，未写完，没写三种情况
     //
     push_and_do_task([this, fd, conn]() {

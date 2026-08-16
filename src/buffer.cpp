@@ -2,6 +2,7 @@
 #include "Auth.h"
 #include <cerrno>
 #include <cstddef>
+#include <string>
 #include <sys/types.h>
 #include <sys/uio.h>
 Buffer::Buffer(int initBuffersize):buffer_(initBuffersize),readPos_(0),writePos_(0){
@@ -87,13 +88,14 @@ void Buffer::Append(const Buffer& buff){
 //fd中读取到buffer
 ssize_t Buffer::ReadFd(int fd, int* saveErrno){
    // char buff[65535-buf_size];数组要常量是因为栈变量的大小要确定，指针和vector底层都是堆空间
-    char* buff=new char[65536-buffer_.size()];//设置上限，最大64kb
+    size_t  length=65536-buffer_.size();
+    char* buff=new char[length];//设置上限，最大64kb
      iovec iov[2];//2个地方分别是buffer和临时缓冲区，配合readv，writev，read/write依次写满
      const size_t save_writableBytes=WritableBytes();
     iov[0].iov_base=BeginWrite();
     iov[0].iov_len=save_writableBytes;
     iov[1].iov_base=buff;
-    iov[1].iov_len=sizeof(buff);
+    iov[1].iov_len=sizeof(length);
 
     const ssize_t len=readv(fd, iov,2);
     if(len<0){
@@ -164,4 +166,10 @@ void Buffer::adjust_pos(){
          readPos_=0;
          writePos_=readPos_+save;
          assert(save == ReadableBytes());
+}
+std::string::size_type Buffer::find_of_first(std::string& res){
+     return std::string(Peek(),ReadableBytes()).find_first_of(res);
+}
+std::string::size_type Buffer::find_of_first(const char* res){
+     return std::string(Peek(),ReadableBytes()).find_first_of(res);
 }

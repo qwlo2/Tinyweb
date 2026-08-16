@@ -4,6 +4,7 @@
 #include "log.h"
 
 #include "lsmconnpool.h"
+#include "session.h"
 #include "sqlconnpool.h"
 #include "staticfilecache.h"
 #include "threadpool.h"
@@ -67,7 +68,8 @@ WebServer::WebServer(
               "/fonts/fontawesome-webfont.woff2"
           };
           StaticFileCache::Instance().Preload(srcDir_, hotStaticFiles);
-
+          //redis的启动
+          Session::Intense()->Init("127.0.0.1",6879,threadarNum_);
           if(openLog) {
              Log::Instance()->init(logLevel, "./log", ".log", logQueSize);
           }
@@ -117,6 +119,7 @@ WebServer::WebServer(
         ThreadPool::init_Db()->stop();
         ThreadPool::init_Argon2id()->stop();
         ThreadPool::init_io()->stop();
+        ThreadPool::init_File()->stop();
         loop->stop();
         eventpool->stop();
 
@@ -126,7 +129,7 @@ WebServer::WebServer(
         }else {
         SqlConnPool::Instance()->ClosePool();
         }
-        
+        Session::Intense()->ClosePool();
        
  }
  void WebServer::Start(){

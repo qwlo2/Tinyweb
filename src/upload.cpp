@@ -27,10 +27,10 @@ void UploadFile::parase_filed(std::list<std::string>& list){
       }
 }
 void UploadFile::init(){
-  user_id = -1;
-  file_id = -1;
-  writed_size = -1;
-  ready_write_size = -1;
+  user_id = 0;
+  file_id = 0;
+  writed_size = 0;
+  ready_write_size = 0;
   fileds = {};
   file_fd=-1;
   inited=false;
@@ -55,12 +55,21 @@ std::string& UploadFile::get_boundary(){
  }
  Upload UploadFile::upload_file(int file_fd,Buffer& readBuff_){
        //因为结束符不一定是连贯的
-       int safe_size=readBuff_.ReadableBytes();
-       bool is_end=std::string(readBuff_.BeginWrite()-safe_size,readBuff_.BeginWrite())=="--"+boundary+"--";
-       if (!is_end) {
-              //最极限时只有一个没到
-              safe_size-=4+boundary.size()+1;
-       }
+       //\r\n--boundary-- \r\n
+       //因为可能有粘包，因此只能找到/r/n，并保留它之后的所有
+         int safe_size=0;
+          bool is_end=false;
+      auto pos=std::move(readBuff_.find_of_first("="));
+      if (pos==std::string::npos) {
+          //没有就全是文件数据
+            safe_size=readBuff_.ReadableBytes();
+      }else {
+        //进行匹配，必须要同时存在，不然无法把/r/n去除
+            is_end=std::string(pos,4+boundary.size()+4)=="--"+boundary+"--";
+            //只读到/r/n
+            safe_size=pos;
+      }
+      
        ready_write_size+=safe_size;
        int saveErrno=0;
        //hash的data和len
@@ -73,7 +82,9 @@ std::string& UploadFile::get_boundary(){
        if (!chunkhash(datas,len)) {
              return Upload::UploadError;
        }
+       readBuff_.Retrieve(safe_size);
        if (is_end&&ret) {
+        readBuff_.Retrieve(8+boundary.size()+1);
           //响应报文
            return Upload::ReadyWrite;
        }else if (!is_end&&ret ) {
@@ -101,7 +112,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
               return Upload::UploadError;
            }
            //要先创建目录
-          std::filesystem::path fina_dire="data/object"+hash_hex.substr(0,2)+hash_hex.substr(2,2);
+          std::filesystem::path fina_dire="data/object"+hash_hex.substr(0,2)+"/"+hash_hex.substr(2,2);
           //exists判断文件/目录是否存在，可能是文件存在
           if (!std::filesystem::is_directory(fina_dire)) {
               std::filesystem::create_directory(fina_dire);
@@ -118,7 +129,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
            EVP_MD_CTX_free(hash_ctx_);
              close(file_id);
        }
-      
+      return  ret;
  }
  bool UploadFile::init_fileds(){
      //增量hash初始化
@@ -142,9 +153,9 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
              std::filesystem::create_directory("data/object");
         }
         //返回值可以有成功，失败，文件重传
-        temp_path="data/tmp"+std::to_string(get_user_id())+"_"+get_filename();
+        temp_path="data/tmp/"+std::to_string(get_user_id())+"_"+get_filename();
       //  std::string tmp_file("data/tmp"+std::to_string(get_user_id())+"_"+get_filename());
-       int file_fd=::open(
+        file_fd=::open(
          temp_path.c_str(), 
          O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
           0600);

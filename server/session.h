@@ -14,16 +14,15 @@ class Session{
     void FreeConn(redisContext* conn);
     int GetFreeConnCount();
 
-    void Init(const char* host, int port, int connSize);//datebase
-    void ClosePool();
    public:
       std::string getUser_id(const std::string& uesename);
 
       std::optional<std::string> gettoken( const std::string& uesename);
 
       bool versityToken(const std::string& cookies,size_t& user_id);
-
+       void Init(const char* host, int port, int connSize);//datebase
       static Session*  Intense();
+       void ClosePool();
       Session();
       ~Session();
 
