@@ -568,3 +568,10 @@ int  HttpRequest::ConverHex(char ch){
 // std::string HttpRequest::get_filename(){
 //          return  file.get_filename();
 // }
+
+void HttpRequest::set_Auth_html(){
+     path_="/welcome.html";
+}
+void HttpRequest::set_upload_html(){
+    path_="/upload_success.html";
+}

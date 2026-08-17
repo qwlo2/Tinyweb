@@ -152,41 +152,21 @@ void eventloop::closeconn(int fd){
 //处理登录和注册
 void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                conn->Parseauth();
-              if (conn->is_login()) {
                  //先查后解析arg
                    ThreadPool::init_Db()->AddTask([this,fd,conn](){
-                          //失败则直接返回发送error.html
-                          if (!conn->SqlQuary()) {
-                               Onwrite(fd,conn);
-                               return ;
-                          }
-                          //成功则直接进行加密/验证
-                          ThreadPool::init_Argon2id()->AddTask(
-                              [this, fd, conn]() {
-                                //通过path是否为welcone界面来判断是否成功
-                                   if (conn->ar_hash_and_versity()) {
-                                         conn->is_success();
-                                   }
-                                   Onwrite(fd,conn);
-                              });
+                           if (conn->Auth_ar_and_sqlquary()) {
+                               conn->set_Auth_html();
+                           }
+                           conn->makeResponse(responseResult::Complete);
+                           conn->sta = ProcessResult::ReadyWrite;
+                           push_and_do_task([this, fd, conn]() {
+                                               if (!isCurrentConnection(fd, conn)) {
+                                                       return;
+                                                 }
+                                                 ep->ModFd(fd, EPOLLOUT | event); 
+                                         });
                    });
-              }else {
-                 //注册要先arg再查
-                  //失败则直接返回发送error.html
-                 ThreadPool::init_Argon2id()->AddTask([this, fd, conn]() {
-                       if (!conn->ar_hash_and_versity()) {
-                             Onwrite(fd,conn);
-                               return ;
-                         }
-                       ThreadPool::init_Db()->AddTask([this,fd,conn](){
-                                 if (conn->SqlQuary()) {
-                                         conn->is_success();
-                                   }
-                                   Onwrite(fd,conn);
-                       });
-                 });
-
-              }
+              
 }
  void eventloop::hadleUpload(int fd,const std::shared_ptr<HttpConn> conn){
        ThreadPool::init_File()->AddTask([fd,this,conn](){
@@ -204,7 +184,8 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                    break;
                     case Upload::ReadyWrite:
                                        ThreadPool::init_io()->AddTask([fd,this,conn](){
-                                         conn->makeResponse(HttpRequest::ParseResult::Upload);
+                                        conn->set_upload_html();
+                                         conn->makeResponse(responseResult::Upload);
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
@@ -215,7 +196,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                    break;
                     case Upload::UploadError:
                                        ThreadPool::init_io()->AddTask([fd,this,conn](){
-                                         conn->makeResponse(HttpRequest::ParseResult::UploadError);
+                                         conn->makeResponse(responseResult::ServerError);
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
@@ -366,10 +347,10 @@ void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
         return;
       }
       ThreadPool::init_io()->AddTask([this,fd,conn](){
-      if (conn->sta==ProcessResult::NeedAuth ) {
-          conn->makeResponse(HttpRequest::ParseResult::Complete);
-            conn->sta = ProcessResult::ReadyWrite;
-      }
+      // if (conn->sta==ProcessResult::NeedAuth ) {
+      //     conn->makeResponse(HttpRequest::ParseResult::Complete);
+      //       conn->sta = ProcessResult::ReadyWrite;
+      // }
          int saveerrno=0;
          int ret=conn->write(&saveerrno);
      if (conn->ToWriteBytes()==0) {

@@ -32,14 +32,16 @@ const std::unordered_map<int,std::string> HttpResponse::CODE_STATUS{
      {403,"Forbidden"},
      {404,"Not Found"},
      {413,"Payload Too Large"},
-     {500 ,"Internal Server Error"}
+     {500 ,"Internal Server Error"},
+     {401 ,"Unauthorized"}
 };
 const std::unordered_map<int,std::string> HttpResponse::CODE_PATH{
      {404,"/404.html"},
+     {401,"/401.html"},
      {403,"/403.html"},
      {400,"/400.html"},
-     {413,"/400.html"},
-         {500,"/400.html"}
+     {413,"/413.html"},
+         {500,"/500.html"}
 };
 HttpResponse::HttpResponse()
     : code_(-1), isKeepAlive_(false), file_(nullptr) {
@@ -60,9 +62,6 @@ void HttpResponse::Init(const std::string& srcDir, std::string& path,
     // has_cookies=false;
     // is_download=false;
     fileds={};
-}
-void HttpResponse::set_isdownload(bool res){
-      is_download=res;
 }
 void HttpResponse::set_filed(std::string name,std::string filed){
      fileds.emplace(name,filed);
@@ -85,7 +84,7 @@ size_t HttpResponse::getFileLen() const {
     return file_ ? file_->Size() : 0;
 }
 
-void HttpResponse::MakeResponse(Buffer& buff) {
+void HttpResponse::MakeResponse(Buffer& buff,responseResult sta) {
     StaticFileCache& cache = StaticFileCache::Instance();
 
     if (code_ < 400) {
@@ -110,9 +109,9 @@ void HttpResponse::MakeResponse(Buffer& buff) {
         }
     }
 
-    AddStateLine_(buff);
-    AddHeader_(buff);
-    AddContent_(buff);
+    AddStateLine_(buff,sta);
+    AddHeader_(buff,sta);
+    AddContent_(buff,sta);
     file_={};
 }
 
@@ -123,7 +122,7 @@ void HttpResponse::ErrorHtml_() {
     }
 }
 
-void HttpResponse::AddStateLine_(Buffer &buff){
+void HttpResponse::AddStateLine_(Buffer &buff,responseResult& sta){
     std::string statu_;
     if(CODE_STATUS.count(code_)){
            statu_=CODE_STATUS.find(code_)->second;
@@ -134,7 +133,7 @@ void HttpResponse::AddStateLine_(Buffer &buff){
     }
     buff.Append("HTTP/1.1 " +std::to_string(code_)+" "+statu_+"\r\n");
 }
-void HttpResponse::AddHeader_(Buffer &buff){
+void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     buff.Append("Connection:");
     if(isKeepAlive_){        
         buff.Append("keep-alive\r\n");
@@ -143,21 +142,20 @@ void HttpResponse::AddHeader_(Buffer &buff){
     else {
        buff.Append("close\r\n");
     }
-    if (has_cookies) {
+    if (sta==responseResult::Auth) {
     //path决定浏览器访问哪些 URL 路径时，应该携带这个 Cookie。
     //HttpOnly代表浏览器可以保存它、发送它，但是网页里的 JavaScript 不能直接读取它。
     //Secure表示这个 Cookie 只通过 HTTPS 请求发送。
     //SameSite 主要限制：从其他网站发起的请求，浏览器要不要携带你的 Cookie。
        buff.Append("Set-Cookie:session="+fileds["cookies"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
-       has_cookies=false;
     }
     buff.Append("Content-type:"+GetFileType_()+"\r\n");
 }
-void HttpResponse::AddContent_(Buffer &buff){//获取file.size
-    if (is_download) {
+void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.size
+    if (sta==responseResult::Download) {
         buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
         buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
-        is_download=false;
+
         return;
     }
      if(!file_){

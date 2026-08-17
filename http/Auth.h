@@ -26,8 +26,11 @@ class Auth{
          bool quary_lsm();
    
    public:
+    //验证或注册
     bool ar_hash_and_versity();
     bool SqlQuary();
+    //将quary和加密结合
+    bool Auth_ar_and_SqlQuary();
     
     void init();
     void setUsername(std::string& name);

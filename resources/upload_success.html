@@ -1,49 +1,33 @@
-<!--
- * @Author       : mark
- * @Date         : 2020-06-30
- * @copyleft GPL 2.0
--->
 <!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
-
      <meta charset="UTF-8">
      <meta name="viewport" content="width=device-width, initial-scale=1">
-
-     <title>My 云盘 - 首页</title>
+     <title>My 云盘 - 上传成功</title>
      <link rel="icon" href="/images/favicon.ico">
      <link rel="stylesheet" href="/css/bootstrap.min.css">
      <link rel="stylesheet" href="/css/animate.css">
      <link rel="stylesheet" href="/css/magnific-popup.css">
      <link rel="stylesheet" href="/css/font-awesome.min.css">
-
-     <!-- Main css -->
      <link rel="stylesheet" href="/css/style.css">
-
 </head>
 
-<body class="site-page" data-spy="scroll" data-target=".navbar-collapse" data-offset="50">
-
-     <!-- PRE LOADER -->
+<body class="site-page status-page" data-spy="scroll" data-target=".navbar-collapse" data-offset="50">
      <div class="preloader">
           <div class="spinner">
                <span class="spinner-rotate"></span>
           </div>
      </div>
 
-
-     <!-- NAVIGATION SECTION -->
      <div class="navbar custom-navbar navbar-fixed-top" role="navigation">
           <div class="container">
-
                <div class="navbar-header">
                     <button class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
                          <span class="icon icon-bar"></span>
                          <span class="icon icon-bar"></span>
                          <span class="icon icon-bar"></span>
                     </button>
-                    <!-- lOGO TEXT HERE -->
                     <a href="/" class="navbar-brand">My 云盘</a>
                </div>
                <div class="collapse navbar-collapse">
@@ -54,30 +38,21 @@
                          <li><a class="smoothScroll" href="/register.html">注册</a></li>
                     </ul>
                </div>
-
           </div>
      </div>
-     <!-- HOME SECTION -->
+
      <section id="home">
           <div class="container">
                <div class="row">
-
-                    <div class="col-md-offset-1 col-md-2 col-sm-3">
-                         <img src="/images/profile-image.my.jpeg" class="wow fadeInUp img-responsive img-circle"
-                              data-wow-delay="0.2s" alt="云盘用户头像">
-                    </div>
-                    <div class="col-md-8 col-sm-8 hero-copy">
-                         <h1 class="wow fadeInUp" data-wow-delay="0.6s">My 云盘</h1>
-                         <p class="wow fadeInUp" data-wow-delay="0.8s">登录后即可上传并持久化保存个人文件。</p>
-                         <div class="hero-actions wow fadeInUp" data-wow-delay="1s">
-                              <a class="site-button" href="/login.html">登录云盘</a>
-                              <a class="site-button secondary" href="/register.html">注册账号</a>
-                         </div>
+                    <div class="status-card wow fadeInUp" data-wow-delay="0.2s">
+                         <h1>上传成功</h1>
+                         <p>文件已成功保存。</p>
+                         <a class="site-button" href="/welcome.html">返回云盘</a>
                     </div>
                </div>
           </div>
      </section>
-     <!-- SCRIPTS -->
+
      <script src="/js/jquery.js"></script>
      <script src="/js/bootstrap.min.js"></script>
      <script src="/js/smoothscroll.js"></script>

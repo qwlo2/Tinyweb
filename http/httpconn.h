@@ -4,10 +4,8 @@
 #include "download.h"
 #include "httprequest.h"
 #include "httpresponse.h"
-#include "session.h"
 #include "upload.h"
 #include <cstddef>
-#include <mutex>
 #include <netinet/in.h>
 enum class ProcessResult {
     NeedRead,
@@ -46,18 +44,20 @@ public:
    //判断是否为post和可解析文本，并初始化name，pwd
    void Parseauth();
    void ParseFile() ;
-   //查询或插入
-    bool SqlQuary();
-    //加密或验证
-    bool ar_hash_and_versity();
-    bool is_login();
-     void is_success();
+//    //查询或插入
+//     bool SqlQuary();
+//     //加密或验证
+//     bool ar_hash_and_versity();
+//     bool is_login();
+    bool Auth_ar_and_sqlquary();
+     void set_Auth_html();
+     void set_upload_html();
      //文件上传
      bool upload_file(int file_fd);
       Upload handle_upload_file();
       DownloadResult handle_down();
 
-    void makeResponse(HttpRequest::ParseResult  sta);
+    void makeResponse(responseResult  sta);
     int ToWriteBytes() const {
         size_t bytes = 0;
         for(int i = 0; i < iovCnt_; ++i) {

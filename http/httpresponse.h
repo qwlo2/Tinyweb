@@ -4,38 +4,40 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <utility>
-
+enum class responseResult{
+        BadRequest,//400
+        PayloadTooLarge,//413
+        Complete,//普通的body
+        Auth,//登录
+        Upload,//上传
+       // UploadError,
+        Download,//下载
+       // DownloadError,
+        Unauthorized,//未登录 / Session 失效401
+        NotFound,// 404
+         ServerError//500上传/下载服务器内部错误
+};
 class HttpResponse {
 public:
     HttpResponse();
     ~HttpResponse();
 
     void Init(const std::string& srcDir, std::string& path, bool isKeepAlive = false, int code = -1);
-    void MakeResponse(Buffer& buff);
+    void MakeResponse(Buffer& buff,responseResult sta);
     void UnmapFile();
     char* getFile();
     size_t getFileLen() const;
     void ErrorContent(Buffer& buff, std::string message);
     int Code() const { return code_; }
-    void set_has_cookies(bool has_cookies_){
-         has_cookies=has_cookies_;
-    }
-    bool& get_has_cookies(){
-          return  has_cookies;
-    }
      
     void set_isdownload(bool res);
-    bool& get_isdownload(){
-         return is_download;
-    }
 
     void set_filed(std::string name,std::string filed);
     void set_filed(char* name,char* filed);
 private:
-    void AddStateLine_(Buffer &buff);
-    void AddHeader_(Buffer &buff);
-    void AddContent_(Buffer &buff);
+    void AddStateLine_(Buffer &buff,responseResult& sta);
+    void AddHeader_(Buffer &buff,responseResult& sta);
+    void AddContent_(Buffer &buff,responseResult& sta);
 
     void ErrorHtml_();
     std::string GetFileType_();
@@ -47,8 +49,6 @@ private:
     std::string srcDir_;
     
     std::shared_ptr<const MappedFile> file_;
-    bool has_cookies{false};
-    bool is_download{false};
 
     std::unordered_map<std::string,std::string> fileds;
     static const std::unordered_map<std::string, std::string> SUFFIX_TYPE;

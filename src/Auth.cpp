@@ -52,6 +52,20 @@ bool Auth::HashPasswordArgon2id(const std::string& password, std::string& encode
     // 最终哈希值
     return true;
 }
+ bool Auth::Auth_ar_and_SqlQuary(){
+    int ret=0;
+        if (islogin) {
+             if (!SqlQuary()) {
+                   return false;
+             }
+            return ar_hash_and_versity();
+        }
+             if (!ar_hash_and_versity()) {
+                  return false;
+             }
+             return  SqlQuary();
+        
+ }
 //不用salt，会自动从encoded中解析，再把salt带入，看是否相同
 //数据库里面存储的是加密过后的，但不是直接将password用HashPasswordArgon2id加密然后比较
 //而是调用argon2id_verify解析加密的encoded，从提取参数，在加密进行比较

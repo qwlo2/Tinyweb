@@ -61,9 +61,8 @@ public:
 //      //加密与验证
 //     bool ar_hash_and_versity();
     //注册/登录成功，改变path
-    void is_success(){
-           path_="/welcome.html";
-    }
+    void set_Auth_html();
+    void set_upload_html();
     ParseResult rece_uploadfile();
   ParseResult  parseResult() ;
 

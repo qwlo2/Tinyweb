@@ -1,20 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
      <meta charset="UTF-8">
-     <title>MARK-欢迎</title>
-     <link rel="icon" href="images/favicon.ico">
-     <link rel="stylesheet" href="css/bootstrap.min.css">
-     <link rel="stylesheet" href="css/animate.css">
-     <link rel="stylesheet" href="css/magnific-popup.css">
-     <link rel="stylesheet" href="css/font-awesome.min.css">
+     <meta name="viewport" content="width=device-width, initial-scale=1">
+     <title>My 云盘 - 文件上传</title>
+     <link rel="icon" href="/images/favicon.ico">
+     <link rel="stylesheet" href="/css/bootstrap.min.css">
+     <link rel="stylesheet" href="/css/animate.css">
+     <link rel="stylesheet" href="/css/magnific-popup.css">
+     <link rel="stylesheet" href="/css/font-awesome.min.css">
      <!-- Main css -->
-     <link rel="stylesheet" href="css/style.css">
+     <link rel="stylesheet" href="/css/style.css">
 
 </head>
 
-<body class="site-page" data-spy="scroll" data-target=".navbar-collapse" data-offset="50">
+<body class="site-page auth-page" data-spy="scroll" data-target=".navbar-collapse" data-offset="50">
 
      <!-- PRE LOADER -->
      <div class="preloader">
@@ -34,16 +35,15 @@
                          <span class="icon icon-bar"></span>
                     </button>
                     <!-- lOGO TEXT HERE -->
-                    <a href="/" class="navbar-brand">Mark</a>
+                    <a href="/" class="navbar-brand">My 云盘</a>
                </div>
 
                <div class="collapse navbar-collapse">
                     <ul class="nav navbar-nav navbar-right">
                          <li><a class="smoothScroll" href="/">首页</a></li>
-                         <li><a class="smoothScroll" href="/picture">图片</a></li>
-                         <li><a class="smoothScroll" href="/video">视频</a></li>
-                         <li><a class="smoothScroll" href="/login">登录</a></li>
-                         <li><a class="smoothScroll" href="/register">注册</a></li>
+                         <li><a class="smoothScroll" href="/welcome.html">云盘</a></li>
+                         <li><a class="smoothScroll" href="/login.html">登录</a></li>
+                         <li><a class="smoothScroll" href="/register.html">注册</a></li>
                     </ul>
                </div>
 
@@ -54,32 +54,26 @@
 
           <div class="container">
                <div class="row">
-
-                    <div class="col-md-offset-1 col-md-2 col-sm-3">
-                         <img src="images/profile-image.my.jpeg" class="wow fadeInUp img-responsive img-circle"
-                              data-wow-delay="0.2s" alt="about image">
+                    <div class="auth-card">
+                         <h1>我的云盘</h1>
+                         <p>选择文件并上传到个人云盘。</p>
+                         <form action="/file" method="post" enctype="multipart/form-data">
+                              <label class="sr-only" for="upload-file">选择文件</label>
+                              <div><input id="upload-file" type="file" name="file" required></div><br>
+                              <div><button type="submit">上传文件</button></div>
+                         </form>
                     </div>
-
-                    <div class="col-md-8 col-sm-8 hero-copy">
-                         <h1 class="wow fadeInUp" data-wow-delay="0.6s"> 欢迎您！</h1>
-                         <p class="wow fadeInUp" data-wow-delay="0.8s">登录成功，可以继续浏览图片和视频内容。</p>
-                         <div class="hero-actions wow fadeInUp" data-wow-delay="1s">
-                              <a class="site-button" href="/picture">浏览图片</a>
-                              <a class="site-button secondary" href="/video">观看视频</a>
-                         </div>
-                    </div>
-
                </div>
           </div>
      </section>
      <!-- SCRIPTS -->
-     <script src="js/jquery.js"></script>
-     <script src="js/bootstrap.min.js"></script>
-     <script src="js/smoothscroll.js"></script>
-     <script src="js/jquery.magnific-popup.min.js"></script>
-     <script src="js/magnific-popup-options.js"></script>
-     <script src="js/wow.min.js"></script>
-     <script src="js/custom.js"></script>
+     <script src="/js/jquery.js"></script>
+     <script src="/js/bootstrap.min.js"></script>
+     <script src="/js/smoothscroll.js"></script>
+     <script src="/js/jquery.magnific-popup.min.js"></script>
+     <script src="/js/magnific-popup-options.js"></script>
+     <script src="/js/wow.min.js"></script>
+     <script src="/js/custom.js"></script>
 </body>
 
 </html>
