@@ -202,14 +202,14 @@ std::string HttpRequest::GetPost(const std::string& key) const{
 }
     std::string HttpRequest::Getheader(const char* key) const{
    // assert(key != nullptr);
-    if(post_.contains(key) ) {
-        return post_.find(key)->second;
+    if(header_.contains(key) ) {
+        return header_.find(key)->second;
     }
     return "";
 }
 std::string HttpRequest::Getheader(const std::string& key) const{
-        if(post_.contains(key) ) {
-        return post_.find(key)->second;
+        if(header_.contains(key) ) {
+        return header_.find(key)->second;
     }
     return "";
 }
@@ -232,7 +232,7 @@ bool HttpRequest::IsKeepAlive() const{
     }
     return false;
 }
-
+//下载时的GET /file/a.txt HTTP/1.1，path取出filename在download的paradoen中进行
 HttpRequest::ParseResult HttpRequest::ParseRequestLine_(const std::string& line){
     // std::regex patten("^([^ ]*) ([^ ]*) HTTP/([^ ]*)$");//regex，patten代表匹配规则
     // std::smatch submatch;//收集后的容器
@@ -251,7 +251,7 @@ HttpRequest::ParseResult HttpRequest::ParseRequestLine_(const std::string& line)
       return ParseResult::BadRequest;
     }
     auto second = line.find(" ", first + 1);
-    if (first == std::string::npos || first == 0) {
+    if (second == std::string::npos || first == 0) {
       return ParseResult::BadRequest;
     }
     if (line.find(' ', second + 1) != std::string::npos) {
@@ -314,7 +314,7 @@ HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
         //保持：的位置并找到;的位置
            int tmp=pos;
            pos=line.find_first_of(";");
-           value=Trim_(line.substr(tmp,pos-tmp));
+           value=Trim_(line.substr(tmp+1,pos-tmp-1));
            header_[lowerKey]=value;
         //保存boundary
            tmp=pos;
@@ -440,7 +440,7 @@ void HttpRequest::para_up_File(UploadFile& filer){
   }
 }
 void HttpRequest::para_down_File(Download& filer){
-       if(method_=="GET"&&(path_=="/file")){
+       if(method_=="GET"&&(path_.starts_with("/file"))){
   //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
              // LOG_DEBUG("upload file:%s",file_filed.);
                 filer.parase_filed(file_filed);
@@ -452,7 +452,7 @@ void HttpRequest::para_down_File(Download& filer){
 void HttpRequest::ParseBody_(const std::string& line){
     body_=line;
     // JSON、纯文本还有二进制不解析
-    if(header_["Content-Type"] == "application/x-www-form-urlencoded") {
+    if(header_["content-type"] == "application/x-www-form-urlencoded") {
         ParseFromUrlencoded_();
     }
    // ParsePost_();
@@ -488,7 +488,7 @@ void HttpRequest::ParseBody_(const std::string& line){
         //普通的
            auto tmp=std::move(Trim_(line.substr(pos+1)));
            //要去掉双引号
-           file_filed.emplace_back(tmp.substr(1,tmp.size()-2));
+           file_filed.emplace_back(tmp.substr(2,tmp.size()-3));
        }else {
            //带文件名的
            auto tmp=std::move(Trim_(line.substr(pos,pos_-pos)));

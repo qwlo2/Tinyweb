@@ -19,7 +19,7 @@
 std::string Session::getUser_id(const std::string& username){
     auto sql = SqlConnPool::Instance()->GetConn();
     if(!sql){
-        return 0;
+        return {};
     }
    //绑定string
    auto bind_string = [](MYSQL_BIND& bind, const std::string& value,
@@ -35,7 +35,7 @@ std::string Session::getUser_id(const std::string& username){
     auto prepare_stmt = [&](const char* query) -> MYSQL_STMT* {
         MYSQL_STMT* stmt = mysql_stmt_init(sql.get());
         if(!stmt){
-            return nullptr;
+            return {};
         }
         if(mysql_stmt_prepare(stmt, query, static_cast<unsigned long>(std::strlen(query)))){
             mysql_stmt_close(stmt);
@@ -100,6 +100,7 @@ std::optional<std::string> Session::gettoken( const std::string& uesename){
               continue;
            }
         LOG_ERROR("session random_bytes creates error");
+        return nullptr;
      }
      //采用base64URL编码，相比base63最后2位从+=变为-_，防止在http报文中出错
       static constexpr char TABLE[] =
@@ -148,12 +149,15 @@ std::optional<std::string> Session::gettoken( const std::string& uesename){
     //只有%b,%s，%b代表地址和长度，
     if (reply==nullptr) {
          LOG_ERROR("redis creates error");
+         freeReplyObject(reply);
         return  nullptr;
     }
-    if (reply->type!=REDIS_REPLY_STATUS&&std::string(reply->str,reply->len)=="OK") {
+    if (reply->type!=REDIS_REPLY_STATUS||std::string(reply->str,reply->len)!="OK") {
      LOG_ERROR("redis creates error");
+     freeReplyObject(reply);
         return  nullptr;
     }
+    freeReplyObject(reply);
     return cookies;
 }
 bool Session::versityToken(const std::string& cookie,size_t& user_id){
@@ -163,7 +167,7 @@ bool Session::versityToken(const std::string& cookie,size_t& user_id){
        auto reply=static_cast<redisReply*>(
           redisCommand(
             redis_sql.get(),
-            "GET %b EX %s",
+            "GETEX %b EX %s",
             token_hash.data(),
             token_hash.size(),
             timeout.data()
@@ -171,12 +175,14 @@ bool Session::versityToken(const std::string& cookie,size_t& user_id){
        );
       // 表示连接、网络或协议错误，不是 Session 过期
       //应返回或转化为：HTTP/1.1 503 Service Unavailable
-    //    if (redis_sql==nullptr) {
-    //       return false;
-    //    }
+       if (redis_sql==nullptr) {
+        freeReplyObject(reply);
+          return false;
+       }
        //REDIS_REPLY_NIL代表失败
         if (reply->type == REDIS_REPLY_NIL) {
         // Key 不存在、已被删除或者已经过期
+        freeReplyObject(reply);
          return false;
     } else if (reply->type == REDIS_REPLY_STRING) {
        // std::uint64_t user_id = 0;
@@ -188,10 +194,11 @@ bool Session::versityToken(const std::string& cookie,size_t& user_id){
             std::from_chars(begin, end, user_id);
 
         if (ec == std::errc{} && ptr == end && user_id != 0) {
+            freeReplyObject(reply);
              return true;
         }
     }
-
+    freeReplyObject(reply);
        return false;
 }
  Session*  Session::Intense(){

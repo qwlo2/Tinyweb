@@ -74,8 +74,7 @@ public:
     static std::atomic<int> userCount;
     ProcessResult sta{};
 private:
-    mutable std::mutex io_mtx_;
-
+  
     int fd_;
     struct  sockaddr_in addr_;
 

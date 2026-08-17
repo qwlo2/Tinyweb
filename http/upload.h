@@ -25,6 +25,7 @@ class UploadFile{
         std::unordered_map<std::string, std::string> fileds;
     public:
        void init();
+       ~UploadFile();
        //字段初始化
        void parase_filed(std::list<std::string>& list);
        bool inited{false};

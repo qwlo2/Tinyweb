@@ -1,6 +1,7 @@
 #include "upload.h"
 #include "buffer.h"
 #include "sqlconnpool.h"
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <fcntl.h>
@@ -8,8 +9,10 @@
 #include <iomanip>
 #include <ios>
 #include <openssl/evp.h>
+#include <openssl/types.h>
 #include <sstream>
 #include <string>
+#include <sys/types.h>
 #include <unistd.h>
 #include <utility>
 
@@ -32,11 +35,32 @@ void UploadFile::init(){
   writed_size = 0;
   ready_write_size = 0;
   fileds = {};
+  if (file_fd>0) {
+     close(file_fd);
+  }
   file_fd=-1;
   inited=false;
+  if (hash_ctx_) {
+       EVP_MD_CTX_free(hash_ctx_);
+  }
   hash_ctx_=nullptr;
+  if (!temp_path.empty()) {
+     ::unlink(temp_path.c_str());
+  }
   temp_path.clear();
   boundary={};
+}
+UploadFile::~UploadFile(){
+  if (file_fd>0) {
+     close(file_fd);
+  }
+
+  if (hash_ctx_) {
+       EVP_MD_CTX_free(hash_ctx_);
+  }
+  if (!temp_path.empty()) {
+     ::unlink(temp_path.c_str());
+  }
 }
 size_t& UploadFile::get_user_id(){
      return  user_id;
@@ -57,43 +81,63 @@ std::string& UploadFile::get_boundary(){
        //因为结束符不一定是连贯的
        //\r\n--boundary-- \r\n
        //因为可能有粘包，因此只能找到/r/n，并保留它之后的所有
-         int safe_size=0;
-          bool is_end=false;
-      auto pos=std::move(readBuff_.find_of_first("="));
-      if (pos==std::string::npos) {
-          //没有就全是文件数据
-            safe_size=readBuff_.ReadableBytes();
-      }else {
-        //进行匹配，必须要同时存在，不然无法把/r/n去除
-            is_end=std::string(pos,4+boundary.size()+4)=="--"+boundary+"--";
-            //只读到/r/n
-            safe_size=pos;
-      }
       
+
+     const std::string end_boundary =
+        "\r\n--" + boundary + "--"+"\r\n";
+
+    const size_t readable = readBuff_.ReadableBytes();
+
+    if (readable == 0) {
+        return Upload::NeedRead;
+    }
+    auto pos = readBuff_.find(end_boundary);
+
+    size_t safe_size = 0;
+    bool is_end = false;
+       
+    if (pos != std::string::npos) {
+        safe_size = pos;
+        is_end = true;
+    }else {
+        //三种情况，不含，含部分，全部
+        //此时为部分或不含
+        //部分是最多为end_boundary.size() - 1
+        const size_t reserve = end_boundary.size() - 1;
+
+        if (readable <= reserve) {
+            return Upload::NeedRead;
+        }
+        safe_size = readable - reserve;
+    }
+
+    
        ready_write_size+=safe_size;
        int saveErrno=0;
        //hash的data和len
        auto datas=readBuff_.Peek();
        size_t len=safe_size;
-
-       bool ret=readBuff_.WriteFd(file_fd, safe_size);
-       writed_size+=safe_size;
+       
+       ssize_t ret=readBuff_.WriteFd(file_fd, safe_size);
+       writed_size+=ret;
+        ready_write_size += ret;
+       readBuff_.Retrieve(ret);
+        
+       if (ret!=safe_size) {
+           return  Upload::UploadError;
+       }
        //进行增量hash
        if (!chunkhash(datas,len)) {
              return Upload::UploadError;
        }
-       readBuff_.Retrieve(safe_size);
-       if (is_end&&ret) {
-        readBuff_.Retrieve(8+boundary.size()+1);
+       if (is_end) {
           //响应报文
+          readBuff_.Retrieve(end_boundary.size());
            return Upload::ReadyWrite;
-       }else if (!is_end&&ret ) {
+       }
           //文件没有上传完成
           return  Upload::NeedRead;
-       }else {
-          //返回重传
-          return Upload::UploadError;
-       }
+       
  }
  //页缓存是内核维护的、可回写和可回收的中间缓冲。当磁盘跟不上时，
  // 内核会让 write() 变慢，从而把压力逐层传回网络端。因此即便 write() 后数据暂时还在内存中，整个上传依然是流式的。
@@ -107,12 +151,12 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
           //rename,sync
           std::string hash_hex;
            if ( !finishHash(hash_hex)) {
-               EVP_MD_CTX_free(hash_ctx_);
-              close(file_id);
+            //    EVP_MD_CTX_free(hash_ctx_);
+            //   close(file_fd);
               return Upload::UploadError;
            }
            //要先创建目录
-          std::filesystem::path fina_dire="data/object"+hash_hex.substr(0,2)+"/"+hash_hex.substr(2,2);
+          std::filesystem::path fina_dire="data/object/"+hash_hex.substr(0,2)+"/"+hash_hex.substr(2,2);
           //exists判断文件/目录是否存在，可能是文件存在
           if (!std::filesystem::is_directory(fina_dire)) {
               std::filesystem::create_directory(fina_dire);
@@ -120,15 +164,19 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
           std::filesystem::path fina_path=fina_dire/hash_hex;
             fsync(file_fd);
           if (!rename_file(fina_path)) {
-              EVP_MD_CTX_free(hash_ctx_);
-              close(file_id);
+            //   EVP_MD_CTX_free(hash_ctx_);
+            //   close(file_fd);
               return Upload::UploadError;
           }
+          //成功要释放资源
+        //   EVP_MD_CTX_free(hash_ctx_);
+        //       close(file_fd);
        }else if (ret==Upload::UploadError ) {
-        //失败
-           EVP_MD_CTX_free(hash_ctx_);
-             close(file_id);
+       
+        //   EVP_MD_CTX_free(hash_ctx_);
+        //      close(file_fd);
        }
+      
       return  ret;
  }
  bool UploadFile::init_fileds(){
@@ -136,13 +184,12 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
      //摘要上下文创建
        hash_ctx_=EVP_MD_CTX_new();//哈希摘要（md5，sha256），还有对称加密
        if (!EVP_MD_CTX_init(hash_ctx_)) {
-           EVP_MD_CTX_free(hash_ctx_);
+          // EVP_MD_CTX_free(hash_ctx_);
            return false;
        }
        //指定算法，第三个参数指定硬件engine，nulpte默认
        if (EVP_DigestInit_ex(hash_ctx_,EVP_sha256(), nullptr)!=1) {
-           EVP_MD_CTX_free(hash_ctx_);
-             hash_ctx_ = nullptr;
+          // EVP_MD_CTX_free(hash_ctx_);
             return false;
        }
      //临时文件
@@ -165,8 +212,8 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
         // O_CLOEXEC  exec 时自动关闭
           // 0600       只有服务器进程所属用户可读写
           if (file_fd<0) {
-             EVP_MD_CTX_free(hash_ctx_);
-             close(file_id);
+            //  EVP_MD_CTX_free(hash_ctx_);
+            //  close(file_fd);
              return false;
           }
         return true;
@@ -174,8 +221,8 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
  //增连hash
  bool  UploadFile::chunkhash(const char* data,size_t len){
         if (EVP_DigestUpdate(hash_ctx_, data, len)!=1) {
-          EVP_MD_CTX_free(hash_ctx_);
-             close(file_id);
+        //   EVP_MD_CTX_free(hash_ctx_);
+        //      close(file_fd);
              return false;
         }
         return true;
@@ -222,7 +269,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
         fina_path.c_str(),
         RENAME_NOREPLACE//目标路径已经存在时，禁止覆盖。
     );
-
+     int saveerron=errno;
     //普通的rename会出现竞争，会将存在的文件覆盖，要保证原子性，renameat2是若存在则返回
     int dir_fd = ::open(
     fina_path.parent_path().c_str(),
@@ -251,7 +298,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
         return true;
     }
 
-    if (errno == EEXIST&& add_or_increment_object(fina_path)) {
+    if (saveerron == EEXIST&& add_or_increment_object(fina_path)) {
         // 已有相同哈希文件，删除当前临时文件。
         ::unlink(temp_path.c_str());
         return true;;

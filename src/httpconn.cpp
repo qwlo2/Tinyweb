@@ -39,7 +39,6 @@ HttpConn::~HttpConn(){
 //因为要fd复用，因此单独一个init函数
 void HttpConn::init(int sockFd, const sockaddr_in& addr){
     assert(sockFd>0);
-    std::lock_guard<std::mutex> lock(io_mtx_);
     userCount++;
        fd_=sockFd;
        addr_=addr;
@@ -62,22 +61,20 @@ void HttpConn::init(int sockFd, const sockaddr_in& addr){
 
 
 void HttpConn::Close(){
-    int oldFd = -1;
-    {
-        std::lock_guard<std::mutex> lock(io_mtx_);
+
         if(isClose_){
             return;
         }
         response_.UnmapFile();
         isClose_=true;
         userCount--;
-        oldFd=fd_;
-        fd_=-1;
-    }
-    if(oldFd>=0){
-        ::close(oldFd);
-        LOG_INFO("Client[%d] quit!",oldFd);
-        LOG_INFO("Client[%d](%s:%d) quit, UserCount:%d", oldFd, GetIP(), GetPort(), (int)userCount);
+       // oldFd=fd_;
+       
+    if(fd_>=0){
+        ::close(fd_);
+         fd_=-1;
+        LOG_INFO("Client[%d] quit!",fd_);
+        LOG_INFO("Client[%d](%s:%d) quit, UserCount:%d", fd_, GetIP(), GetPort(), (int)userCount);
     }
 }
 
@@ -140,7 +137,6 @@ void HttpConn::process(){
              } 
             request_.para_down_File(d_file);
              d_file.inited=true;
-             response_.set_isdownload(true);
               sta= ProcessResult::Download;
               return;   
         default:
@@ -151,7 +147,6 @@ void HttpConn::process(){
    sta= ProcessResult::ReadyWrite;
 }
 void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
-    std::lock_guard<std::mutex> lock(io_mtx_);
       std::string path;
      int code=200;
      keepAlive_=false;
@@ -177,7 +172,10 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
            code=400;
            readBuff_.RetrieveAll();
      }
-
+    // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
+     request_.Init();
+     //只有403在MakeResponse中用读权限判断给出
+     response_.Init(srcDir,path,keepAlive_,code);
      //登录/注册
     if (response_.get_has_cookies()) {
          auto tokens=std::move( Session::Intense()->gettoken(request_.GetPost("username"))); 
@@ -187,18 +185,13 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
         //has——cookies=false
         //  }
         response_.set_filed("cookies",tokens.value());
-         response_.MakeResponse(writeBuff_);
     }else if (response_.get_isdownload()) {
           response_.set_filed(" filename",d_file.get_filename());
           response_.set_filed("Content-Length: ",std::to_string(d_file.get_content_length()));
-    }else {
+    }
         //普通报文
          response_.MakeResponse(writeBuff_);
-    }
-    // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
-     request_.Init();
-     //只有403在MakeResponse中用读权限判断给出
-     response_.Init(srcDir,path,keepAlive_,code);
+    
 
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
@@ -211,7 +204,6 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
      LOG_DEBUG("filesize:%zu, iovCnt:%d, toWrite:%d", response_.getFileLen(), iovCnt_, ToWriteBytes());
 }
 ssize_t HttpConn::read(int* saveErrno){
-    std::lock_guard<std::mutex> lock(io_mtx_);
     if(isClose_||fd_<0){
         *saveErrno=ECANCELED;
         return -1;
@@ -239,7 +231,6 @@ ssize_t HttpConn::read(int* saveErrno){
 //将iov的0的writerbuffer和1的file
 //通过iov写入fd
 ssize_t HttpConn::write(int* saveErrno){
-     std::lock_guard<std::mutex> lock(io_mtx_);
      if(isClose_||fd_<0){
         *saveErrno=ECANCELED;
         return -1;
@@ -341,7 +332,10 @@ bool HttpConn::ar_hash_and_versity(){
 }
 bool HttpConn:: versityToken(size_t& user_id){
     //传进去user_id，通过这个获取
-    return  Session::Intense()->versityToken(request_.Getheader("cookie"),user_id);
+    auto tmp=std::move(request_.Getheader("cookie"));
+    auto pos=tmp.find_first_of("=");
+
+    return  Session::Intense()->versityToken(tmp.substr(pos+1),user_id);
 }
 Upload HttpConn ::handle_upload_file(){
      //由于是ET下，因此要一直读到ReadyWrite或者缓冲区完
@@ -366,25 +360,30 @@ Upload HttpConn ::handle_upload_file(){
 DownloadResult HttpConn::handle_down(){
     if (d_file.inited) {
           //先打开文件，来判断响应报文的code
+           d_file.inited=false;
      if (!d_file.openfile()) {
+        
         makeResponse(HttpRequest::ParseResult::DownloadError);
         //needwrite代表等待缓冲区，其他的直接写
         return  DownloadResult::Error;
      }
+     //放在process时，当中途错误，仍然会创建错误的报文
+      response_.set_isdownload(true);
      makeResponse(HttpRequest::ParseResult::Download);
      while (true) {
         int errno_=0;
      int ret=write(&errno_);
      //缓冲区读完
      if (ret<0&&(errno_==EWOULDBLOCK||errno_==EAGAIN)) {
-            return  DownloadResult::NeedWrite;
+           // return  DownloadResult::NeedWrite;
+           //将file和buf混合一些，第一次可以大一点
+           break;
      }else if (ret>0) {
            continue;
      }else {
        return  DownloadResult::Error;
      }
      }
-     d_file.inited=false;
     }
     return  d_file.handle_down(fd_);
 }

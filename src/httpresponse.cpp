@@ -57,8 +57,8 @@ void HttpResponse::Init(const std::string& srcDir, std::string& path,
     code_ = code;
     srcDir_ = srcDir;
     path_ = path;
-    has_cookies=false;
-    is_download=false;
+    // has_cookies=false;
+    // is_download=false;
     fileds={};
 }
 void HttpResponse::set_isdownload(bool res){
@@ -113,6 +113,7 @@ void HttpResponse::MakeResponse(Buffer& buff) {
     AddStateLine_(buff);
     AddHeader_(buff);
     AddContent_(buff);
+    file_={};
 }
 
 void HttpResponse::ErrorHtml_() {
@@ -143,8 +144,12 @@ void HttpResponse::AddHeader_(Buffer &buff){
        buff.Append("close\r\n");
     }
     if (has_cookies) {
-       
-       buff.Append("Set-Cookie:"+fileds["cookies"]+"\r\n");
+    //path决定浏览器访问哪些 URL 路径时，应该携带这个 Cookie。
+    //HttpOnly代表浏览器可以保存它、发送它，但是网页里的 JavaScript 不能直接读取它。
+    //Secure表示这个 Cookie 只通过 HTTPS 请求发送。
+    //SameSite 主要限制：从其他网站发起的请求，浏览器要不要携带你的 Cookie。
+       buff.Append("Set-Cookie:session="+fileds["cookies"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
+       has_cookies=false;
     }
     buff.Append("Content-type:"+GetFileType_()+"\r\n");
 }
@@ -152,6 +157,7 @@ void HttpResponse::AddContent_(Buffer &buff){//获取file.size
     if (is_download) {
         buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
         buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
+        is_download=false;
         return;
     }
      if(!file_){

@@ -7,7 +7,8 @@
 #include <string>
 
 void Download::parase_filed(std::list<std::string>& list){
-    filename=list.front();
+    // path=/file/a.txt
+    filename=list.front().substr(6);
     if (list.size()>1) {
         auto tmp=list.back();
         //range:byte=start-
@@ -111,9 +112,8 @@ bool   Download::openfile(){
       off_t offset_ = static_cast<off_t>(offset);
        size_t remain=0;
       //限制单次事件处理的发送预算
-      while (offset_< file_size &&
-       sent_this_time < MAX_SEND_PER_EVENT) {
-
+      while (offset_< file_size ) {
+         
          remain =static_cast<size_t>(file_size - offset_);
 
     size_t count = std::min(CHUNK_SIZE, remain);

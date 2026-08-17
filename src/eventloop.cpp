@@ -233,6 +233,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                 auto ret=std::move(conn->handle_down());
                 switch (ret) {
                     case DownloadResult::NeedWrite:
+                                      //此时的作用是防止大文件长期占用线程，每256k进行轮换
                                    ThreadPool::init_io()->AddTask([fd,this,conn](){
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
@@ -258,7 +259,9 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                      
                                              }else if (conn->sta==ProcessResult::NeedAuth) {
                                                       handleAuth(fd, conn);
-                                            } else {                    
+                                            }else if (conn->sta==ProcessResult::Download) {
+                                                      hadleDownload(fd, conn);
+                                            }  else {                    
                                                     push_and_do_task([this, fd, conn]() {
                                                        if (!isCurrentConnection(fd, conn)) {
                                                                   return;
@@ -358,7 +361,7 @@ void eventloop::DealWrite(int fd){
 void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
     //写完，未写完，没写三种情况
     //
-    push_and_do_task([this, fd, conn]() {
+
       if (!isCurrentConnection(fd, conn)) {
         return;
       }
@@ -414,7 +417,6 @@ void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
         }
         });    
     });
-  });
 }
 // void eventloop::process(int fd){
 //      //badqust,toolarge,compete都是true，要返回响应报文

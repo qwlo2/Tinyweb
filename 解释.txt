@@ -206,3 +206,13 @@ download：
 
 对于epollin的fd，当client断开连接，会有eof信号，可读并关闭
 epollout同理返回epollhup/epollrr
+
+auth应该也放在process，验证和quary放在一起，这样webser就只调用conn的函数
+conn也可以控制响应报文的构造，HttpConn::makeResponse根据参数传入 response_.MakeResponse(writeBuff_)
+response_.MakeResponse增加一个参数HttpRequest::ParseResult  storage_path
+这样addline等也可以增加HttpRequest::ParseResult，以此来控制报文的书写
+
+ET下如果没有epollshot，在download进行轮换时，会一直沉睡，由于epollshot新注册会发出信号
+此时可以继续写，这里的流量控制，体现在不会一直写，而是轮换，而大小的话，由于socket缓冲区时系统设置的
+因此是固定的大小。进行EPOLL_CTL_MOD时，状态会重置为inactive，而 MOD 会重新检查当前 readiness
+此时实际为可写/读，因此通知

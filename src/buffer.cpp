@@ -1,5 +1,6 @@
 #include "buffer.h"
 #include "Auth.h"
+#include <algorithm>
 #include <cerrno>
 #include <cstddef>
 #include <string>
@@ -95,7 +96,7 @@ ssize_t Buffer::ReadFd(int fd, int* saveErrno){
     iov[0].iov_base=BeginWrite();
     iov[0].iov_len=save_writableBytes;
     iov[1].iov_base=buff;
-    iov[1].iov_len=sizeof(length);
+    iov[1].iov_len=length;
 
     const ssize_t len=readv(fd, iov,2);
     if(len<0){
@@ -113,7 +114,7 @@ ssize_t Buffer::ReadFd(int fd, int* saveErrno){
     return len;
 }
 //向fd中写入
-bool Buffer::WriteFd(int fd, int& len_){
+ssize_t Buffer::WriteFd(int fd, size_t& len_){
    // size_t save_ReadableBytes=ReadableBytes();
    //len是要传的大小也兼顾已经write的大小
    ssize_t offect=len_;
@@ -121,14 +122,14 @@ bool Buffer::WriteFd(int fd, int& len_){
     while (len_<offect) {
     ssize_t tmp=write(fd,Peek(),offect-len_);
     if(tmp>0){
-         readPos_+=tmp;
+        // readPos_+=tmp;
          len_+=tmp;
     }
     else if (tmp<0&&errno==EINTR) {
         continue;
     }
-    return false;
   }
+    //2种情况，写完，错误,文件的写入没有缓冲区满
      return len_;
 }
 char* Buffer::BeginPtr_(){
@@ -167,9 +168,47 @@ void Buffer::adjust_pos(){
          writePos_=readPos_+save;
          assert(save == ReadableBytes());
 }
-std::string::size_type Buffer::find_of_first(std::string& res){
-     return std::string(Peek(),ReadableBytes()).find_first_of(res);
+std::string::size_type Buffer::find(const std::string& target){
+     //find_first_of找的是参数的第一个字符匹配的位置而不是整个string，适合单个
+     //find是string，内部大部分表示kmp，一般是暴力
+     if (target.empty()) {
+        return 0;
+    }
+
+    const char* begin = Peek();
+    const char* end = BeginWriteConst();
+
+    const char* pos = std::search(
+        begin,
+        end,
+        target.begin(),
+        target.end()
+    );
+
+    if (pos == end) {
+        return std::string::npos;
+    }
+
+    return static_cast<size_t>(pos - begin);
 }
-std::string::size_type Buffer::find_of_first(const char* res){
-     return std::string(Peek(),ReadableBytes()).find_first_of(res);
+std::string::size_type Buffer::find(const char* target,int len){
+    if (!target) {
+        return 0;
+    }
+   //find(std::string(target,len));
+    const char* begin = Peek();
+    const char* end = BeginWriteConst();
+
+    const char* pos = std::search(
+        begin,
+        end,
+        target,
+        target+len
+    );
+
+    if (pos == end) {
+        return std::string::npos;
+    }
+
+    return static_cast<size_t>(pos - begin);
 }
