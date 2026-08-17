@@ -120,7 +120,7 @@ ssize_t Buffer::WriteFd(int fd, size_t& len_){
    ssize_t offect=len_;
     len_=0;
     while (len_<offect) {
-    ssize_t tmp=write(fd,Peek(),offect-len_);
+    ssize_t tmp=write(fd,Peek()+len_,offect-len_);
     if(tmp>0){
         // readPos_+=tmp;
          len_+=tmp;
@@ -128,6 +128,8 @@ ssize_t Buffer::WriteFd(int fd, size_t& len_){
     else if (tmp<0&&errno==EINTR) {
         continue;
     }
+    //其他错误
+    break;
   }
     //2种情况，写完，错误,文件的写入没有缓冲区满
      return len_;
@@ -144,7 +146,7 @@ void Buffer::MakeSpace_(size_t len){
     //begin____readpos____writepos____end
     //是个循坏写入的buffer，当0-radpos和writepos-end都小于len时，扩容
      if(WritableBytes()+PrependableBytes()<len){
-          buffer_.resize(writePos_+len+1);//防止/0
+          buffer_.resize(writePos_+len);
      }
      else {
         char* ch=BeginPtr_();

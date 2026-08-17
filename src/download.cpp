@@ -5,10 +5,12 @@
 #include <sys/sendfile.h>
 #include <mysql/mysql.h>
 #include <string>
+#include <unistd.h>
 
 void Download::parase_filed(std::list<std::string>& list){
     // path=/file/a.txt
-    filename=list.front().substr(6);
+    //已经在parseResult解决
+    filename=list.front();
     if (list.size()>1) {
         auto tmp=list.back();
         //range:byte=start-
@@ -24,10 +26,18 @@ void Download::parase_filed(std::list<std::string>& list){
           file_path={};
           content_hash={};
            file_size=0;
-           offset=0;
+           offset=0; 
+           if (fileFd>0) {
+              close(fileFd);
+           }
            fileFd=-1;
            inited=false;
  }
+  Download::~Download(){
+      if (fileFd>0) {
+              close(fileFd);
+           }
+  }
 size_t& Download::get_userid(){
    return user_id;
 }
@@ -69,13 +79,15 @@ bool   Download::openfile(){
      
      unsigned long pathsize=64;
      result[1].buffer_type=MYSQL_TYPE_STRING;
-     result[1].buffer=&file_path;
+     //result[1].buffer=&file_path;
+    result[1].buffer= const_cast<char*>(file_path.data());
      result[1].buffer_length=pathsize;
      result[1].length=&pathsize;
 
     unsigned long hashsize=64;
      result[2].buffer_type=MYSQL_TYPE_STRING;
-     result[2].buffer=&content_hash;
+    // result[2].buffer=&content_hash;
+      result[2].buffer=const_cast<char*>(content_hash.data());
      result[2].buffer_length=hashsize;
      result[2].length=&hashsize;
 
@@ -112,7 +124,7 @@ bool   Download::openfile(){
       off_t offset_ = static_cast<off_t>(offset);
        size_t remain=0;
       //限制单次事件处理的发送预算
-      while (offset_< file_size ) {
+      while (offset_<= file_size ) {
          
          remain =static_cast<size_t>(file_size - offset_);
 
@@ -127,7 +139,7 @@ bool   Download::openfile(){
           sent_this_time+=n;
           continue;
         }
-
+       //offset_< file_size是不会有n==0
         if (n == 0) {
           // 文件已经到 EOF
           return DownloadResult::Finished;

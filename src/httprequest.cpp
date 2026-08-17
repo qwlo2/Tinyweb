@@ -309,7 +309,7 @@ HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
         if(ToLower_(value).find("chunked")!=std::string::npos){
             return ParseResult::BadRequest;
         }
-    }else if (lowerKey=="content-type") {
+    }else if (lowerKey=="content-type"&&method_=="GET"&&path_.starts_with("/file")) {
        // Content-Type: multipart/form-data; boundary=----abc123
         //保持：的位置并找到;的位置
            int tmp=pos;
@@ -434,7 +434,7 @@ void HttpRequest::para_up_File(UploadFile& filer){
   //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
              // LOG_DEBUG("upload file:%s",file_filed.);
                 filer.parase_filed(file_filed);
-                filer.get_boundary()=post_["boundary"];
+                filer.get_boundary()=header_["boundary"];
                  LOG_DEBUG("upload file:%s",filer.get_filename().c_str());
                 path_="/error.html";
   }

@@ -204,7 +204,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                    break;
                     case Upload::ReadyWrite:
                                        ThreadPool::init_io()->AddTask([fd,this,conn](){
-                                         conn->makeResponse(HttpRequest::ParseResult::Complete);
+                                         conn->makeResponse(HttpRequest::ParseResult::Upload);
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;

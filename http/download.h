@@ -19,6 +19,7 @@ class Download{
          size_t offset;//拖拉
          int   fileFd;
    public:
+          ~Download();
           void parase_filed(std::list<std::string>& list);
           void init();
 

@@ -159,7 +159,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
           std::filesystem::path fina_dire="data/object/"+hash_hex.substr(0,2)+"/"+hash_hex.substr(2,2);
           //exists判断文件/目录是否存在，可能是文件存在
           if (!std::filesystem::is_directory(fina_dire)) {
-              std::filesystem::create_directory(fina_dire);
+              std::filesystem::create_directories(fina_dire);
           }
           std::filesystem::path fina_path=fina_dire/hash_hex;
             fsync(file_fd);
@@ -260,6 +260,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
     if (::close(file_fd) == -1) {
         return false;
     }
+    file_fd=-1;
     // 2. 目标不存在时才原子发布。
     const long ret = ::syscall(
         SYS_renameat2,

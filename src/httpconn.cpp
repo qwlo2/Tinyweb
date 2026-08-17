@@ -123,7 +123,7 @@ void HttpConn::process(){
                  file.inited=true;
                  request_.para_up_File(file);
                  //文件重传，验证失败
-                 if (!file.init_fileds()||!versityToken(file.get_user_id())) {
+                 if (!versityToken(file.get_user_id())||!file.init_fileds()) {
                     result=HttpRequest::ParseResult::UploadError;
                     break;
                  }
@@ -151,7 +151,9 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
      int code=200;
      keepAlive_=false;
 
-     if(sta==HttpRequest::ParseResult::Complete){
+     if(sta==HttpRequest::ParseResult::Complete||
+        sta==HttpRequest::ParseResult::Download||
+         sta==HttpRequest::ParseResult::Upload){
             path=request_.getpath();
             keepAlive_=request_.IsKeepAlive();
             code=200;
@@ -172,10 +174,6 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
            code=400;
            readBuff_.RetrieveAll();
      }
-    // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
-     request_.Init();
-     //只有403在MakeResponse中用读权限判断给出
-     response_.Init(srcDir,path,keepAlive_,code);
      //登录/注册
     if (response_.get_has_cookies()) {
          auto tokens=std::move( Session::Intense()->gettoken(request_.GetPost("username"))); 
@@ -186,7 +184,7 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
         //  }
         response_.set_filed("cookies",tokens.value());
     }else if (response_.get_isdownload()) {
-          response_.set_filed(" filename",d_file.get_filename());
+          response_.set_filed("filename",d_file.get_filename());
           response_.set_filed("Content-Length: ",std::to_string(d_file.get_content_length()));
     }
         //普通报文
@@ -201,6 +199,10 @@ void HttpConn::makeResponse(HttpRequest::ParseResult  sta){
           iov_[1].iov_len=response_.getFileLen();
           iovCnt_++;
      }
+     // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
+     request_.Init();
+     //只有403在MakeResponse中用读权限判断给出
+     response_.Init(srcDir,path,keepAlive_,code);
      LOG_DEBUG("filesize:%zu, iovCnt:%d, toWrite:%d", response_.getFileLen(), iovCnt_, ToWriteBytes());
 }
 ssize_t HttpConn::read(int* saveErrno){
