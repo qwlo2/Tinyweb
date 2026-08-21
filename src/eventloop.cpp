@@ -4,6 +4,7 @@
 #include "eventloop.h"
 #include "heaptimer.h"
 #include "httpconn.h"
+#include "httpresponse.h"
 #include "log.h"
 #include "threadpool.h"
 #include "upload.h"
@@ -155,10 +156,11 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                  //先查后解析arg
                    ThreadPool::init_Db()->AddTask([this,fd,conn](){
                            if (conn->Auth_ar_and_sqlquary()) {
-                               conn->set_Auth_html();
+                                conn->makeResponse(responseResult::Auth);
+                           }else {
+                                 conn->makeResponse(responseResult::Unauthorized);
                            }
-                           conn->makeResponse(responseResult::Complete);
-                           conn->sta = ProcessResult::ReadyWrite;
+                           //conn->sta = ProcessResult::ReadyWrite;
                            push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
@@ -184,7 +186,6 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                    break;
                     case Upload::ReadyWrite:
                                        ThreadPool::init_io()->AddTask([fd,this,conn](){
-                                        conn->set_upload_html();
                                          conn->makeResponse(responseResult::Upload);
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
@@ -229,8 +230,8 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                        if (conn->IsKeepAlive()) {
                                           ThreadPool::init_io()->AddTask([this, fd,conn]() {
                                            //半包和刚好一个的情况已经处理，如果此时是黏包，应该直接进行解析
-                                                conn->process();
-                                              if (conn->sta==ProcessResult::NeedRead ) {
+                                              auto sta= std::move(conn->process());
+                                              if (sta==ProcessResult::NeedRead ) {
                                                  push_and_do_task([this, fd, conn]() {
                                                     if (!isCurrentConnection(fd, conn)) {
                                                           return;
@@ -238,9 +239,9 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                     ep->ModFd(fd,EPOLLIN|event);
                                                 });
                      
-                                             }else if (conn->sta==ProcessResult::NeedAuth) {
+                                             }else if (sta==ProcessResult::NeedAuth) {
                                                       handleAuth(fd, conn);
-                                            }else if (conn->sta==ProcessResult::Download) {
+                                            }else if (sta==ProcessResult::Download) {
                                                       hadleDownload(fd, conn);
                                             }  else {                    
                                                     push_and_do_task([this, fd, conn]() {
@@ -264,6 +265,27 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                 }
        });
   }
+ void eventloop::hadleShare(int fd,const std::shared_ptr<HttpConn> conn){
+             ThreadPool::init_Db()->AddTask([this,fd,conn](){
+                           //失败
+                          if (!conn->handle_share()) {
+                               conn->makeResponse(responseResult::ServerError);
+                
+                          }
+                          if (conn->sta==actual_ProcessResult::ShareDownload) {
+                                 hadleDownload(fd,conn);
+                                 return ;
+                          }
+                          //其他的返回
+                          conn->makeResponse(conn->status_route(conn->sta));
+                          push_and_do_task([this, fd, conn]() {
+                                                       if (!isCurrentConnection(fd, conn)) {
+                                                                  return;
+                                                       }
+                                                         ep->ModFd(fd,EPOLLOUT|event);
+                                                      }); 
+                   });
+ }
 void eventloop::DealRead(int fd){
      if (!httpcoon.contains(fd)) {
         return;
@@ -293,9 +315,9 @@ void eventloop::Onread(int fd,const std::shared_ptr<HttpConn> conn){
         
       }else if (ret > 0) {
         //解析http报文
-          conn->process();
+           auto sta= std::move(conn->process());
         //分别是incompete，needauth，compete
-          if (conn->sta==ProcessResult::NeedRead) {
+          if (sta==ProcessResult::NeedRead) {
               push_and_do_task([this, fd, conn]() {
                 if (!isCurrentConnection(fd, conn)) {
                   return;
@@ -303,12 +325,14 @@ void eventloop::Onread(int fd,const std::shared_ptr<HttpConn> conn){
                 ep->ModFd(fd, EPOLLIN | event);
                });
               
-          } else if (conn->sta==ProcessResult::NeedAuth) {
+          } else if (sta==ProcessResult::NeedAuth) {
               handleAuth(fd, conn);
-          }else if (conn->sta==ProcessResult::Upload) {
+          }else if (sta==ProcessResult::Upload) {
               hadleUpload(fd,conn);
-          }else if (conn->sta==ProcessResult::Download) {
+          }else if (sta==ProcessResult::Download) {
               hadleDownload(fd,conn);
+          }else if (sta==ProcessResult::share) {
+              hadleShare(fd, conn);
           }else{
             push_and_do_task([this, fd, conn]() {
                if (!isCurrentConnection(fd, conn)) {
@@ -358,8 +382,8 @@ void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
             if (conn->IsKeepAlive()) {
               ThreadPool::init_io()->AddTask([this, fd,conn]() {
                 //半包和刚好一个的情况已经处理，如果此时是黏包，应该直接进行解析
-                 conn->process();
-                  if (conn->sta==ProcessResult::NeedRead ) {
+                 auto sta= std::move(conn->process());
+                  if (sta==ProcessResult::NeedRead ) {
                           push_and_do_task([this, fd, conn]() {
                               if (!isCurrentConnection(fd, conn)) {
                                   return;
@@ -367,7 +391,7 @@ void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
                               ep->ModFd(fd,EPOLLIN|event);
                           });
                      
-                  }else if (conn->sta==ProcessResult::NeedAuth) {
+                  }else if (sta==ProcessResult::NeedAuth) {
                       handleAuth(fd, conn);
                   } else {                    
                          push_and_do_task([this, fd, conn]() {

@@ -10,11 +10,11 @@
 #include <hiredis/hiredis.h>  // redisContext、redisReply、redisCommand
 class Session{
    private:
-        std::shared_ptr<redisContext> GetConn();
     void FreeConn(redisContext* conn);
     int GetFreeConnCount();
 
    public:
+    std::shared_ptr<redisContext> GetConn();
       std::string getUser_id(const std::string& uesename);
 
       std::optional<std::string> gettoken( const std::string& uesename);

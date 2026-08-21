@@ -9,29 +9,40 @@
 #include "buffer.h"
 #include "download.h"
 #include "upload.h"
-
-class HttpRequest {
-public:
-    enum PARSE_STATE {
+ enum PARSE_STATE {
         REQUEST_LINE,//请求行（方法+路径+版本） URL=协议+地址+端口+路径（请求的资源的地址）
         HEADERS,//请求头（附加信息）
         BODY,//请求体
         FILR_BODY,//file请求体
         FINISH,
     };
-
+ //ParseResult管理报文解析情况
     enum class ParseResult {
-
         Incomplete,//没有完全读完
         BadRequest,
         PayloadTooLarge,
         Complete,//普通的body
+       
+    };
+    //RouteType管理解析完的报文对应什么处理
+    enum class RouteType {
+        Normal,
         NeedAuth,//登录
         Upload,//上传
-        UploadError,
         Download,//下载
-        DownloadError
-    };
+        ShareCreate,//分享
+        ShareAccess, // GET /share/<token>
+        ShareVerify,//验证提取码
+        ShareDownload
+};
+//让route逻辑更清晰
+enum class HttpMethod {
+    GET,
+    POST,
+    UNKNOWN
+};
+class HttpRequest {
+public:
     // size_t& get_userid();s
     // std::string get_filename();
 
@@ -43,7 +54,7 @@ public:
 
     std::string getpath() const;
     std::string& getpath();
-    std::string getmethod() const;
+    HttpMethod getmethod() const;
     std::string getversion() const;
     std::string GetPost(const std::string& key) const;
     std::string GetPost(const char* key) const;
@@ -61,11 +72,14 @@ public:
 //      //加密与验证
 //     bool ar_hash_and_versity();
     //注册/登录成功，改变path
-    void set_Auth_html();
-    void set_upload_html();
+    // void set_Auth_html();
+    // void set_upload_html();
     ParseResult rece_uploadfile();
-  ParseResult  parseResult() ;
+    //ParseResult  parseResult() ;
+  
+    RouteType route() const ;
 
+const std::string& route_token() const;
 private:
     ParseResult ParseRequestLine_(const std::string& line);//行
     ParseResult ParseHeader_(const std::string& line);//头
@@ -93,7 +107,8 @@ private:
     static constexpr uint64_t MAX_BODY_SIZE = 4ULL*1024 * 1024*1024;
 
     PARSE_STATE state_;
-    std::string method_, path_, version_, body_;
+    std::string  path_, version_, body_;
+    HttpMethod  method_;
     std::unordered_map<std::string, std::string> header_;
     std::unordered_map<std::string, std::string> post_;
      std::list<std::string> file_filed;//由于不是kv形式的报文，因此把所有解析的都放在这里，最后组装
@@ -107,4 +122,11 @@ private:
     static const std::unordered_set<std::string> DEFAULT_HTML;//set只有key，用来判断是否存在
     static const std::unordered_map<std::string, int> DEFAULT_HTML_TAG;//根据html找对应的业务
     static int ConverHex(char ch);
+    
+    //根据method_，path_取得路由
+    void ParseRoute_();
+     void ParseShareRoute_();//ParseRoute_判断大路由，当功能更多，就需要对每一个进行小路由判断
+     bool ValidShareToken_(std::string_view token) ;
+    RouteType route_{RouteType::Normal};
+     std::string route_token_;//share-token
 };

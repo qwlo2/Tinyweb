@@ -51,14 +51,14 @@ HttpResponse::HttpResponse()
 
 HttpResponse::~HttpResponse() = default;
 
-void HttpResponse::Init(const std::string& srcDir, std::string& path,
+void HttpResponse::Init(const std::string& srcDir,
                         bool isKeepAlive, int code) {
     assert(srcDir != "");
     UnmapFile();
     isKeepAlive_ = isKeepAlive;
     code_ = code;
     srcDir_ = srcDir;
-    path_ = path;
+    path_ = CODE_PATH.find(code_)->second;
     // has_cookies=false;
     // is_download=false;
     fileds={};
@@ -147,17 +147,20 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     //HttpOnly代表浏览器可以保存它、发送它，但是网页里的 JavaScript 不能直接读取它。
     //Secure表示这个 Cookie 只通过 HTTPS 请求发送。
     //SameSite 主要限制：从其他网站发起的请求，浏览器要不要携带你的 Cookie。
-       buff.Append("Set-Cookie:session="+fileds["cookies"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
+       buff.Append("Set-Cookie:session="+fileds["cookie"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
     }
-    buff.Append("Content-type:"+GetFileType_()+"\r\n");
-}
-void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.size
+     buff.Append("Content-type:"+GetFileType_()+"\r\n");
     if (sta==responseResult::Download) {
         buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
         buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
-
-        return;
     }
+    if (sta==responseResult::ShareCreate) {
+         buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
+         buff.Append("Code:"+fileds["code"]+"\r\n\r\n");
+    } 
+    
+}
+void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.size
      if(!file_){
         ErrorContent(buff,"File NotFound");
         return;

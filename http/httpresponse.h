@@ -15,14 +15,18 @@ enum class responseResult{
        // DownloadError,
         Unauthorized,//未登录 / Session 失效401
         NotFound,// 404
-         ServerError//500上传/下载服务器内部错误
+         ServerError,//500上传/下载服务器内部错误
+         ShareCreate,//分享
+         ShareAccess,
+        ShareVerify,//验证提取码
+        ShareDownload
 };
 class HttpResponse {
 public:
     HttpResponse();
     ~HttpResponse();
 
-    void Init(const std::string& srcDir, std::string& path, bool isKeepAlive = false, int code = -1);
+    void Init(const std::string& srcDir,  bool isKeepAlive = false, int code = -1);
     void MakeResponse(Buffer& buff,responseResult sta);
     void UnmapFile();
     char* getFile();
@@ -30,7 +34,6 @@ public:
     void ErrorContent(Buffer& buff, std::string message);
     int Code() const { return code_; }
      
-    void set_isdownload(bool res);
 
     void set_filed(std::string name,std::string filed);
     void set_filed(char* name,char* filed);

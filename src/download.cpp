@@ -1,4 +1,5 @@
 #include "download.h"
+#include "log.h"
 #include "sqlconnpool.h"
 #include <fcntl.h>
 #include <mysql/field_types.h>
@@ -168,4 +169,31 @@ size_t Download::get_content_length(){
 }
 std::string Download::get_filename(){
     return filename;
+}
+bool Download::share_init(size_t& file_id){
+           auto sql=SqlConnPool::Instance()->GetConn();
+                  const std::string order = "SELECT user_id ,file_name from file where file_id="+std::to_string(file_id);
+                    
+              bool sussecc=mysql_query(sql.get(), order.c_str());
+              if (!sussecc) {
+                  LOG_ERROR("share down_init select error");
+                  return false;
+              }
+              MYSQL_RES* res=mysql_store_result(sql.get());
+              if (!res) {
+               LOG_ERROR(" MYSQL_RES create error");
+                  return false;
+              }
+                MYSQL_ROW row = mysql_fetch_row(res);
+               if (!row) {
+                 // SELECT 成功，但没有查询到记录
+                  LOG_DEBUG("share_download fetch error")
+                 mysql_free_result(res);
+                 return false;
+               }
+                unsigned long* len=mysql_fetch_lengths(res);//len[n]每一列的长度
+                   
+                user_id=std::stoi(std::string(row[0],len[0]));
+                filename=std::string(row[0],len[0]);
+              mysql_free_result(res);
 }

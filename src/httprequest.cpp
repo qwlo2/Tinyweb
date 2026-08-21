@@ -13,7 +13,7 @@
 #include "log.h"
 
 const std::unordered_map<std::string,int >   HttpRequest::DEFAULT_HTML_TAG{
-         {"/register.html",0} ,{"/login.html",1},{"/file",2}
+         {"/register.html",0} ,{"/login.html",1}
 };
  
 const std::unordered_set<std::string> HttpRequest::DEFAULT_HTML{
@@ -22,7 +22,8 @@ const std::unordered_set<std::string> HttpRequest::DEFAULT_HTML{
 };
 void HttpRequest::Init(){
     state_=PARSE_STATE::REQUEST_LINE;
-    method_.clear();
+    method_=HttpMethod::UNKNOWN;
+
     path_.clear();
     version_.clear();
     body_.clear();
@@ -35,9 +36,12 @@ void HttpRequest::Init(){
     hasContentLength_=false;
     ready_rece_data=false;
     file_filed.clear();
+    
+    route_={};
+    route_token_={};
 }
 //上传/下载不走这里
-HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
+ParseResult HttpRequest::parse(Buffer& buff){
     const char CRLF[]="\r\n";
     while (true) {
         if(state_==PARSE_STATE::REQUEST_LINE){
@@ -62,6 +66,7 @@ HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
                 return ret;
             }
             ParsePath_();
+            ParseRoute_();//解析路由
             continue;
         }
 
@@ -94,15 +99,16 @@ HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
                 if(contentLength_>MAX_BODY_SIZE){
                     return ParseResult::PayloadTooLarge;
                 }
-                if(contentLength_>0&&method_=="POST"&&path_=="/file"){
+                if(contentLength_>0&&route_==RouteType::Upload){
                     state_=PARSE_STATE::FILR_BODY;
                     continue;
                 }else if (contentLength_>0) {
                     state_=PARSE_STATE::BODY;
                     continue;
                 }
+                //在 Header 遇到空行、又没有 body 时,parseResult()被跳过
                 state_=PARSE_STATE::FINISH;
-                LOG_DEBUG("[%s], [%s], [%s]", method_.c_str(), path_.c_str(), version_.c_str());
+                LOG_DEBUG("[%s], [%s], [%s]", method_, path_.c_str(), version_.c_str());
                 return ParseResult::Complete;
             }
             
@@ -128,7 +134,7 @@ HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
             if (line.empty()||line=="--"+post_["boundary"]) {
                 if (ready_rece_data) {
                     state_=PARSE_STATE::FINISH;
-                    return  ParseResult::Upload;
+                    return  ParseResult::Complete;
                 }
                continue;
             }
@@ -149,11 +155,11 @@ HttpRequest::ParseResult HttpRequest::parse(Buffer& buff){
             std::string body(buff.Peek(),contentLength_);
             buff.Retrieve(contentLength_);
             ParseBody_(body);
-            LOG_DEBUG("[%s], [%s], [%s]", method_.c_str(), path_.c_str(), version_.c_str());
+            LOG_DEBUG("[%s], [%s], [%s]", method_, path_.c_str(), version_.c_str());
         }
 
         if(state_==PARSE_STATE::FINISH){
-            return parseResult();
+            return ParseResult::Complete;
         }
     }
 }
@@ -164,29 +170,29 @@ std::string HttpRequest::getpath() const{
 std::string& HttpRequest::getpath(){
     return path_;
 }
-std::string HttpRequest::getmethod() const{
+HttpMethod HttpRequest::getmethod() const{
     return method_;
 }
 std::string HttpRequest::getversion() const{
     return version_;
 }
- HttpRequest::ParseResult HttpRequest::parseResult() {
-      if ( method_ == "POST" &&
-           (path_ == "/login.html" || path_ == "/register.html")) {
-          return ParseResult::NeedAuth;
-      }
-      if (method_== "POST" &&path_ == "/file") {
-              return ParseResult::Upload;
-      }
-      if (method_=="GET"&&path_.starts_with("/file")) {
-           file_filed.emplace_back(path_.substr(6));
-           if (header_.contains("range")) {
-                 file_filed.emplace_back(header_["range"]);
-           }
-            return  ParseResult::Download;
-      }
-      return  ParseResult::Complete;
-}
+//  HttpRequest::ParseResult HttpRequest::parseResult() {
+//       if ( method_ == "POST" &&
+//            (path_ == "/login.html" || path_ == "/register.html")) {
+//           return ParseResult::NeedAuth;
+//       }
+//       if (method_== "POST" &&path_ == "/file") {
+//               return ParseResult::Upload;
+//       }
+//       if (method_=="GET"&&path_.starts_with("/file")) {
+//            file_filed.emplace_back(path_.substr(6));
+//            if (header_.contains("range")) {
+//                  file_filed.emplace_back(header_["range"]);
+//            }
+//             return  ParseResult::Download;
+//       }
+//       return  ParseResult::Complete;
+// }
 std::string HttpRequest::GetPost(const char* key) const{
    // assert(key != nullptr);
     if(post_.contains(key) ) {
@@ -233,19 +239,8 @@ bool HttpRequest::IsKeepAlive() const{
     return false;
 }
 //下载时的GET /file/a.txt HTTP/1.1，path取出filename在download的paradoen中进行
-HttpRequest::ParseResult HttpRequest::ParseRequestLine_(const std::string& line){
-    // std::regex patten("^([^ ]*) ([^ ]*) HTTP/([^ ]*)$");//regex，patten代表匹配规则
-    // std::smatch submatch;//收集后的容器
-    // if(std::regex_match(line,submatch,patten)){
-    //     method_=submatch[1];
-    //     path_=submatch[2];
-    //     version_=submatch[3];
-    //     if(method_.empty()||path_.empty()||version_.empty()){
-    //         return ParseResult::BadRequest;
-    //     }
-    //     state_=PARSE_STATE::HEADERS;
-    //     return ParseResult::Complete;
-    // }
+ParseResult HttpRequest::ParseRequestLine_(const std::string& line){
+   
     auto first = line.find(" ");
     if (first == std::string::npos || first == 0) {
       return ParseResult::BadRequest;
@@ -257,14 +252,23 @@ HttpRequest::ParseResult HttpRequest::ParseRequestLine_(const std::string& line)
     if (line.find(' ', second + 1) != std::string::npos) {
     return ParseResult::BadRequest;
     }
-    method_=line.substr(0,first);
+
+    std::string  method=line.substr(0,first);
+    if (method == "GET") {
+      method_ = HttpMethod::GET;
+    } else if (method == "POST") {
+      method_ = HttpMethod::POST;
+    } else {
+      method_ = HttpMethod::UNKNOWN;
+    }
+
     path_=line.substr(first+1,second-first-1);
     if (line.compare(second + 1, 5, "HTTP/") != 0) {
           LOG_ERROR("RequestLine error");
       return ParseResult::BadRequest;
     }
     version_ = line.substr(second + 6);
-    if (method_.empty() || path_.empty() || version_.empty()) {
+    if (method_==HttpMethod::UNKNOWN || path_.empty() || version_.empty()) {
           LOG_ERROR("RequestLine error");
       return ParseResult::BadRequest;
     }
@@ -272,7 +276,7 @@ HttpRequest::ParseResult HttpRequest::ParseRequestLine_(const std::string& line)
     return ParseResult::Complete;
 
 }
-HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
+ParseResult HttpRequest::ParseHeader_(const std::string& line){
      size_t pos=line.find(':');
     if(pos==std::string::npos||pos==0){
         return ParseResult::BadRequest;
@@ -309,7 +313,7 @@ HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
         if(ToLower_(value).find("chunked")!=std::string::npos){
             return ParseResult::BadRequest;
         }
-    }else if (lowerKey=="content-type"&&method_=="GET"&&path_.starts_with("/file")) {
+    }else if (lowerKey=="content-type"&&method_==HttpMethod::GET&&path_.starts_with("/file")) {
        // Content-Type: multipart/form-data; boundary=----abc123
         //保持：的位置并找到;的位置
            int tmp=pos;
@@ -330,7 +334,9 @@ HttpRequest::ParseResult HttpRequest::ParseHeader_(const std::string& line){
            value=Trim_(line.substr(pos+1));
            lowerKey=ToLower_(key);
     }
- 
+    if (lowerKey=="cookie") {
+      value= lowerKey.substr(lowerKey.find_first_of("=")+1);
+    }
     header_[lowerKey]=value;
     return ParseResult::Complete;
 }
@@ -418,7 +424,7 @@ void HttpRequest::ParsePath_(){
     
 // }
  void HttpRequest::paraAuth(Auth& authuser){
- if(method_=="POST"&&(path_=="/register.html"||path_=="/login.html")){
+ if(route_==RouteType::NeedAuth){
           //ParseFromUrlencoded_();
               int tag=DEFAULT_HTML_TAG.find(path_)->second;
               LOG_DEBUG("Tag:%d",tag);
@@ -430,7 +436,7 @@ void HttpRequest::ParsePath_(){
       }
  }
 void HttpRequest::para_up_File(UploadFile& filer){
-  if(method_=="POST"&&(path_=="/file")){
+  if(route_==RouteType::Upload){
   //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
              // LOG_DEBUG("upload file:%s",file_filed.);
                 filer.parase_filed(file_filed);
@@ -440,7 +446,7 @@ void HttpRequest::para_up_File(UploadFile& filer){
   }
 }
 void HttpRequest::para_down_File(Download& filer){
-       if(method_=="GET"&&(path_.starts_with("/file"))){
+       if(route_==RouteType::Download){
   //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
              // LOG_DEBUG("upload file:%s",file_filed.);
                 filer.parase_filed(file_filed);
@@ -459,7 +465,7 @@ void HttpRequest::ParseBody_(const std::string& line){
     state_=PARSE_STATE::FINISH;
     LOG_DEBUG("Body:%s,len:%d",body_.c_str(),body_.size());
 }
- HttpRequest::ParseResult HttpRequest::ParseFileBody(const std::string& line){
+ParseResult HttpRequest::ParseFileBody(const std::string& line){
 //resume
 // ------TinyWebBoundary
 // Content-Disposition: form-data; name="file"; filename="hello.txt"
@@ -569,9 +575,168 @@ int  HttpRequest::ConverHex(char ch){
 //          return  file.get_filename();
 // }
 
-void HttpRequest::set_Auth_html(){
-     path_="/welcome.html";
+// void HttpRequest::set_Auth_html(){
+//      path_="/welcome.html";
+// }
+// void HttpRequest::set_upload_html(){
+//     path_="/upload_success.html";
+// }
+
+RouteType HttpRequest::route() const {
+    return route_;
 }
-void HttpRequest::set_upload_html(){
-    path_="/upload_success.html";
+
+const std::string& HttpRequest::route_token() const {
+    return route_token_;
+}
+ void HttpRequest::ParseRoute_(){
+     // route_ = RouteType::Normal;
+    route_token_.clear();
+
+    switch (method_) {
+
+    case HttpMethod::POST:
+
+        if (path_ == "/login.html" ||
+            path_ == "/register.html") {
+            route_ = RouteType::NeedAuth;
+            return;
+        }
+
+        if (path_ == "/file") {
+            route_ = RouteType::Upload;
+            return;
+        }
+
+        return;
+
+
+    case HttpMethod::GET:
+      if (path_.starts_with("/file/") && path_.size() > 6) {
+        route_ = RouteType::Download;
+        return;
+      }
+      break;
+
+     default://普通http
+           break;;
+    }
+     // 验证是post，下载是get
+    if (path_ == "/share" ||path_.starts_with("/share/")) {
+    ParseShareRoute_();
+}
+ }
+ void HttpRequest::ParseShareRoute_() {
+    constexpr std::string_view SHARE_PATH   = "/share";
+    constexpr std::string_view SHARE_PREFIX = "/share/";
+
+    if (path_ == SHARE_PATH) {
+        if (method_ == HttpMethod::POST) {
+            route_ = RouteType::ShareCreate;
+        } 
+        //错误则分为normal，在响应报文中返回error.html
+        return;
+    }
+
+    //   /share/<token>
+    //  /share/<token>/verify
+    //   /share/<token>/download
+    if (!path_.starts_with(SHARE_PREFIX)) {
+        return;
+    }
+
+    std::string_view rest =
+        std::string_view(path_).substr(SHARE_PREFIX.size());
+
+    if (rest.empty()) {
+        return;
+    }
+
+    const size_t slash = rest.find('/');
+
+
+    //  GET /share/<token>
+     
+    if (slash == std::string_view::npos) {
+        if (!ValidShareToken_(rest)) {
+            return;
+        }
+
+        if (method_ != HttpMethod::GET) {
+            return;
+        }
+
+        route_token_.assign(rest);
+        route_ = RouteType::ShareAccess;
+        return;
+    }
+
+   
+    // * /share/<token>/<action>
+
+    if (slash == 0 || slash + 1 >= rest.size()) {
+        return;
+    }
+
+    // 禁止：
+    // /share/token/verify/xxx
+    // /share/token/download/xxx
+    if (rest.find('/', slash + 1) != std::string_view::npos) {
+        return;
+    }
+
+    const std::string_view token = rest.substr(0, slash);
+    const std::string_view action = rest.substr(slash + 1);
+
+    if (!ValidShareToken_(token)) {
+        return;
+    }
+
+     // POST /share/<token>/verify
+
+    if (action == "verify") {
+        if (method_ != HttpMethod::POST) {
+            return;
+        }
+
+        route_token_.assign(token);
+        route_ = RouteType::ShareVerify;
+        return;
+    }
+
+   
+     // GET /share/<token>/download
+     
+    if (action == "download") {
+        if (method_ != HttpMethod::GET) {
+            return;
+        }
+
+        route_token_.assign(token);
+        route_ = RouteType::ShareDownload;
+        return;
+    }
+
+    // 未知 action：
+    // /share/token/xxxx
+    // 保持 Normal，最后按 404 处理
+}
+bool HttpRequest::ValidShareToken_(std::string_view token) {
+    constexpr size_t kMinTokenLen = 8;
+    constexpr size_t kMaxTokenLen = 64;
+
+    if (token.size() < kMinTokenLen ||
+        token.size() > kMaxTokenLen) {
+        return false;
+    }
+
+    for (unsigned char c : token) {
+        if (!std::isalnum(c) &&
+            c != '-' &&
+            c != '_') {
+            return false;
+        }
+    }
+
+    return true;
 }

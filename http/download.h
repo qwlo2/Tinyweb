@@ -21,6 +21,7 @@ class Download{
    public:
           ~Download();
           void parase_filed(std::list<std::string>& list);
+          bool share_init(size_t& file_id);
           void init();
 
           size_t get_content_length();

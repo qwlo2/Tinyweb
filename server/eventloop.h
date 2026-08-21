@@ -65,6 +65,8 @@ class eventloop{
       void hadleUpload(int fd,const std::shared_ptr<HttpConn> conn);
       //处理下载
       void hadleDownload(int fd,const std::shared_ptr<HttpConn> conn);
+       //处理分享
+      void hadleShare(int fd,const std::shared_ptr<HttpConn> conn);
       //读写完调用它
       void process(int fd);
 

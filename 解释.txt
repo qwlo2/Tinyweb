@@ -110,15 +110,34 @@ user_id,
 file_id（自动增长）,
 file_name（逻辑名字）,
 object——id
-(访问权限)
 CREATE TABLE file (
     file_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
-    file_name VARCHAR(255) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,UNIQUE KEY,
     object_id BIGINT UNSIGNED NOT NULL,
 
     KEY idx_user_id(user_id),
     KEY idx_object_id(object_id)
+);
+
+分享表:
+分享时，返回share_token，通过share_token来确定是哪个文件，再通过code_hash
+null则是公开的，否则需要提取码来验证，成功后redis增加一个暂时的cookie(sha256_hex(token)->share_id，)
+file-id可能有多个分享状态，因此要用share_id，
+在短时内不需要再次验证提取码，最后下载时验证并获取file-id，再下载
+
+
+CREATE TABLE share (
+    share_id        BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    share_token     CHAR(32) NOT NULL UNIQUE,//通过这个确定文件
+    file_id         BIGINT UNSIGNED NOT NULL,
+    //如果用object-id，那么删除分享时不能区分删除哪个
+    code_hash       VARCHAR(8) NULL,//null代表公开，非null代表需要提取码，暂定4位
+
+    expire_time     DATETIME NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    KEY idx_file_id (file_id)
 );
 
 用户表：
@@ -216,3 +235,9 @@ ET下如果没有epollshot，在download进行轮换时，会一直沉睡，由�
 此时可以继续写，这里的流量控制，体现在不会一直写，而是轮换，而大小的话，由于socket缓冲区时系统设置的
 因此是固定的大小。进行EPOLL_CTL_MOD时，状态会重置为inactive，而 MOD 会重新检查当前 readiness
 此时实际为可写/读，因此通知
+
+share：  
+   三种情况
+   一、获取token，code（选择），会提交filename，是否要code，expiretimr
+   二、验证提取码，提交token，code（选择）
+   三、sha256-hex（token），通过这个在redis中获取share-id，再进行验证是否是要下载的

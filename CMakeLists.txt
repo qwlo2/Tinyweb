@@ -54,7 +54,9 @@ add_executable(Tinywebserver ${SRC_LIST}
     server/session.h
     src/session.cpp
     http/download.h
-    src/download.cpp)
+    src/download.cpp
+    http/file_shared.h
+    src/file_shared.cpp)
 
 target_include_directories(Tinywebserver PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/buffer

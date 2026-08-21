@@ -1,12 +1,17 @@
  #include "httpconn.h"
 #include "download.h"
+#include "file_shared.h"
 #include "httprequest.h"
+#include "httpresponse.h"
  #include "log.h"
 #include "session.h"
+#include "sha256.h"
 #include "upload.h"
 #include <cerrno>
 #include <cstddef>
 #include <fcntl.h>
+#include <hiredis/hiredis.h>
+#include <hiredis/read.h>
 #include <netinet/in.h>
 #include <string>
 #include <strings.h>
@@ -100,98 +105,146 @@ const char* HttpConn::GetIP() const{
 sockaddr_in HttpConn::GetAddr() const{
      return addr_;
 }
-// bool HttpConn::prase(){
-//      return request_.parse(readBuff_);
-// }
-void HttpConn::process(){
+
+ProcessResult HttpConn::process(){
      
-     auto result=request_.parse(readBuff_);
-      responseResult ret;
+     auto result = request_.parse(readBuff_);
+     responseResult ret;
+    switch (result) {
+     case ParseResult::Incomplete:
+        return  ProcessResult::NeedRead;
+
+     case ParseResult::BadRequest:
+       ret = responseResult::BadRequest;
+       break;
+
+     case ParseResult::PayloadTooLarge:
+       ret = responseResult::PayloadTooLarge;
+       break;
+
+     case ParseResult::Complete:
+       break;
+     }
+    if (result != ParseResult::Complete) {
+       makeResponse(ret);
+       return  ProcessResult::ReadyWrite;
+   }
+
      //将所有的剩余数据调到前方，用来控制缓存区大小
      readBuff_.adjust_pos();
-     //这里返回的是process的状态，让reactor知道是该读写，登录/注册，上传，下载
-     switch (result) {
-        case  HttpRequest::ParseResult::Incomplete:
-              sta= ProcessResult::NeedRead;
-              return;
-       case  HttpRequest::ParseResult::NeedAuth:
-              sta= ProcessResult::NeedAuth;
-             
-              return;       
-        case  HttpRequest::ParseResult::Upload:
-             // sta= ProcessResult::;
-              if (!file.inited) {
-                 file.inited=true;
-                 request_.para_up_File(file);
-                 //文件重传，验证失败
-                 if (!versityToken(file.get_user_id())||!file.init_fileds()) {
-                    ret=responseResult::ServerError;
-                    break;
-                 }
-              }
-              sta=ProcessResult::Upload;
-              return;
-        case  HttpRequest::ParseResult::Download:
-             if (!versityToken(d_file.get_userid())) {
-                   ret=responseResult::ServerError;
-                    break;
-             } 
-            request_.para_down_File(d_file);
-             d_file.inited=true;
-              sta= ProcessResult::Download;
-              return;   
-        default:
-              break;   
+    switch (request_.route()) {
+        case  RouteType::NeedAuth:
+                    sta =actual_ProcessResult::NeedAuth;
+                 return   ProcessResult::NeedAuth;
+
+        case RouteType::Upload:
+          // sta= ProcessResult::;
+          if (!file.inited) {
+            file.inited = true;
+            request_.para_up_File(file);
+            // 文件重传，验证失败
+            if (!versityToken(file.get_user_id()) || !file.init_fileds()) {
+              ret = responseResult::ServerError;
+              break;
+            }
+          }
+          sta =actual_ProcessResult::Upload;
+          return   ProcessResult::Upload;
+    
+        case RouteType::Download:
+          if (!versityToken(d_file.get_userid())) {
+            ret = responseResult::ServerError;
+            break;
+          }
+          request_.para_down_File(d_file);
+          d_file.inited = true;
+          sta =actual_ProcessResult::Download;
+           return  ProcessResult::Download;
+
+        case RouteType::ShareCreate:
+             sta=actual_ProcessResult::ShareCreate;
+                 return ProcessResult::share;
+
+        case RouteType::ShareAccess:
+               sta=actual_ProcessResult::ShareAccess;
+               return ProcessResult::share;
+        case RouteType::ShareVerify:
+               sta=actual_ProcessResult::ShareVerify;
+                return ProcessResult::share;
+
+        case RouteType::ShareDownload:
+               sta=actual_ProcessResult::ShareDownload;
+               return ProcessResult::share;
+        
+        case RouteType::Normal:
+           // 普通静态资源
+            break;
      }
       //太长以，格式错误，普通get/body直接做响应报文然后写
       makeResponse(ret);
-   sta= ProcessResult::ReadyWrite;
+      return  ProcessResult::ReadyWrite;
 }
-void HttpConn::makeResponse(responseResult  sta){
-      std::string path;
-     int code=200;
-     keepAlive_=false;
-
-    switch (sta) {
+ void HttpConn::Response_status_parse(responseResult& sta,std::string path,int& code){
+     switch (sta) {
        case responseResult::Complete:
-       case responseResult::Download:
-       case responseResult::Upload:
-       case responseResult::Auth:
-              path=request_.getpath();
-            keepAlive_=request_.IsKeepAlive();
-            code=200;
+            path=request_.getpath();
             //粘包，不 readBuff_.RetrieveAll();
             break;
+       case responseResult::Download:
+             path=request_.getpath();
+            //粘包，不 readBuff_.RetrieveAll();
+            break;
+       case responseResult::Upload:
+           path="/upload_success.html";
+            //粘包，不 readBuff_.RetrieveAll();
+            break;
+       case responseResult::Auth:
+             path="/welcome.html";
+            //粘包，不 readBuff_.RetrieveAll();
+            break;
+        case responseResult::ShareCreate:
+            path="/welcome.html";
+            break;
+        case responseResult::ShareAccess:
+            path="/share_access.html";
+            break;
+        case responseResult::ShareVerify:
+           path="/share_access.html";
+            break;
+        case responseResult::ShareDownload:
+            break;
        case responseResult::PayloadTooLarge:
-           path="/413.html";
            code=413;
            readBuff_.RetrieveAll();
            break;
        case responseResult::ServerError:
-           path="/500.html";
            code=500;
            readBuff_.RetrieveAll();
            break;
        case responseResult::BadRequest:
-          path="/400.html";
            code=400;
            readBuff_.RetrieveAll();
            break;
         case responseResult::NotFound:
-         path="/404.html";
            code=404;
            break;
         case responseResult::Unauthorized:
         //上传时好像要清理，下载时不要
-         path="/401.html";
            code=401;
            readBuff_.RetrieveAll();
            break;
     }
+ }
+void HttpConn::makeResponse(responseResult  sta){
+      std::string path;
+     int code=200;
+    keepAlive_=request_.IsKeepAlive();
+    Response_status_parse(sta,path,code);
+    
     // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
      request_.Init();
      //只有403在MakeResponse中用读权限判断给出
-     response_.Init(srcDir,path,keepAlive_,code);
+     response_.Init(srcDir,keepAlive_,code);
      //登录/注册
     if (sta==responseResult::Auth) {
          auto tokens=std::move( Session::Intense()->gettoken(request_.GetPost("username"))); 
@@ -200,14 +253,13 @@ void HttpConn::makeResponse(responseResult  sta){
         //path也要更换
         //has——cookies=false
         //  }
-        response_.set_filed("cookies",tokens.value());
+        response_.set_filed("cookie",tokens.value());
     }else if (sta==responseResult::Download) {
           response_.set_filed("filename",d_file.get_filename());
           response_.set_filed("Content-Length: ",std::to_string(d_file.get_content_length()));
     }
         //普通报文
          response_.MakeResponse(writeBuff_,sta);
-    
 
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
@@ -283,81 +335,26 @@ ssize_t HttpConn::write(int* saveErrno){
      return len;
 }
 
-//  bool HttpConn::upload_file(int file_fd){
-//        //因为结束符不一定是连贯的
-//        int safe_size=readBuff_.ReadableBytes();
-//        bool is_end=std::string(readBuff_.BeginWrite()-safe_size,readBuff_.BeginWrite())=="--"+request_.GetPost("boundary")+"--";
-//        if (!is_end) {
-//               //最极限时只有一个没到
-//               safe_size-=4+request_.GetPost("boundary").size()+1;
-//        }
-//        file.incr_ready_write_size(safe_size);
-//        int saveErrno=0;
-//        int len=readBuff_.WriteFd(file_fd, saveErrno, safe_size);
-//        file.incr_writed_size(len);
-//        //此时分为不是end且是否写完，是end是否写完
-//        if (!is_end) {
-//          //不是end且是否写完都needread
-//            return false;
-//        }else if (is_end&&len!=safe_size) {
-//             //是end但是没有写完
-            
-//        }{
-       
-//        }
-//  }
-//  ProcessResult HttpConn::handle_upload_file(){
-//         if (!std::filesystem::is_directory("data/tmp")) {
-//              std::filesystem::create_directory("data/tmp");
-//         }
-//         //返回值可以有成功，失败，文件重传
-//         std::string tmp_file("data/tmp"+std::to_string(file.get_user_id())+"_"+file.get_filename());
-//        int file_fd=::open(
-//          tmp_file.c_str(), 
-//          O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
-//           0600);
-//        //  O_WRONLY   只写
-//        // O_CREAT    文件不存在就创建
-//        // O_EXCL     文件已存在则失败，避免覆盖
-//         // O_CLOEXEC  exec 时自动关闭
-//           // 0600       只有服务器进程所属用户可读写
-//         bool ret=upload_file(file_fd);
-//  }
 void HttpConn:: Parseauth(){
        request_.paraAuth(authuser);
 }
 void HttpConn::ParseFile() {
     request_.para_up_File(file);
 }
-//  //查询或插入
-// bool HttpConn::SqlQuary(){
-//      return authuser.SqlQuary();
-// }
-// //加密或验证
-// bool HttpConn::ar_hash_and_versity(){ 
-//     return  authuser.ar_hash_and_versity();
-// }
-//  bool HttpConn::is_login(){
-//      return authuser.getIslogin();
-//  }
+
 bool HttpConn::Auth_ar_and_sqlquary(){
      return authuser.Auth_ar_and_SqlQuary();
 }
-void HttpConn::set_Auth_html(){
-     request_.set_Auth_html();
-}
-void HttpConn::set_upload_html(){
-     request_.set_upload_html();
-}
+
  bool HttpConn::IsKeepAlive() const {
      return keepAlive_;
 }
 bool HttpConn:: versityToken(size_t& user_id){
     //传进去user_id，通过这个获取
-    auto tmp=std::move(request_.Getheader("cookie"));
-    auto pos=tmp.find_first_of("=");
+    // auto tmp=std::move(request_.Getheader("cookie"));
+    // auto pos=tmp.find_first_of("=");
 
-    return  Session::Intense()->versityToken(tmp.substr(pos+1),user_id);
+    return  Session::Intense()->versityToken(request_.Getheader("cookie"),user_id);
 }
 Upload HttpConn ::handle_upload_file(){
      //由于是ET下，因此要一直读到ReadyWrite或者缓冲区完
@@ -390,7 +387,6 @@ DownloadResult HttpConn::handle_down(){
         return  DownloadResult::Error;
      }
      //放在process时，当中途错误，仍然会创建错误的报文
-      response_.set_isdownload(true);
      makeResponse(responseResult::Download);
      while (true) {
         int errno_=0;
@@ -408,4 +404,72 @@ DownloadResult HttpConn::handle_down(){
      }
     }
     return  d_file.handle_down(fd_);
+}
+bool HttpConn::handle_share(){
+    switch (sta) {
+       case actual_ProcessResult::ShareCreate:
+                    return handle_ShareCreate();
+       case actual_ProcessResult::ShareAccess:
+                    return handle_ShareAccess();
+       case actual_ProcessResult::ShareVerify:
+                    return handle_ShareVerify();
+       case actual_ProcessResult::ShareDownload:
+                    return handle_ShareDownload();
+    }            
+    return false;
+}
+bool HttpConn::handle_ShareCreate(){
+    size_t user_id=0;
+    if (!versityToken(user_id)) {
+        return false;
+    }
+   auto res=std::move( File_shared::init()->share_file(request_.GetPost("code"),
+                      user_id, request_.GetPost("filename"),request_.GetPost("expire_time")));
+        if (!res) {
+           return false;
+        }
+        response_.set_filed("share_token", res.value().first);
+        response_.set_filed("code", res.value().second);
+        return true;
+}
+bool HttpConn::handle_ShareAccess(){
+     auto res=std::move( File_shared::init()->vsersity_ShareAccess(request_.Getheader("cookies")));
+     if (res!="") {
+         response_.set_filed("has_code", res);
+         return true;
+     }
+     return false;
+}
+bool HttpConn::handle_ShareVerify(){
+      return  File_shared::init()->versity_share_token(request_.Getheader("cookie"),request_.GetPost("code"));
+}
+bool HttpConn::handle_ShareDownload(){
+    auto auth_hash=sha256_hex(std::move(request_.Getheader("cookie")));
+    size_t file_id=0;
+    if ( File_shared::init()->versity_doenload( file_id,auth_hash)) {
+         d_file.share_init(file_id);
+         d_file.inited=true;
+         //不知道是否要切换状态
+         return true;
+    }
+    return false;
+}
+
+responseResult HttpConn::status_route(actual_ProcessResult& sta){
+       switch (sta) {
+          case actual_ProcessResult::Download:
+                  return responseResult::Download;
+          case actual_ProcessResult::NeedAuth:
+                  return responseResult::Auth;
+          case actual_ProcessResult::Upload:
+                   return responseResult::Upload;
+          case actual_ProcessResult::ShareCreate:
+                  return responseResult::ShareCreate;
+          case actual_ProcessResult::ShareAccess:
+                 return responseResult::ShareAccess;
+          case actual_ProcessResult::ShareVerify:
+                 return responseResult::ShareVerify;
+          case actual_ProcessResult::ShareDownload:
+                return responseResult::ShareDownload;
+       }
 }

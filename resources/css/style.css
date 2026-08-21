@@ -683,6 +683,66 @@ body.site-page {
   color: #ffffff;
 }
 
+.share-card {
+  width: min(520px, 92%);
+}
+
+.share-card .share-kicker {
+  margin-bottom: 10px;
+  color: #777777;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 1.6px;
+}
+
+.share-card h1 {
+  overflow-wrap: anywhere;
+  font-size: 34px;
+}
+
+.share-card .share-file-size {
+  margin-bottom: 22px;
+  color: #555555;
+}
+
+.share-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 24px;
+  padding: 15px 0;
+  border-top: 1px solid #eeeeec;
+  border-bottom: 1px solid #eeeeec;
+  color: #747474;
+  text-align: left;
+}
+
+.share-meta dt,
+.share-meta dd {
+  margin: 0;
+  font-weight: 300;
+}
+
+.share-card .share-prompt {
+  margin-bottom: 18px;
+}
+
+.share-actions label {
+  display: block;
+  margin-bottom: 8px;
+  color: #555555;
+  font-weight: 400;
+  text-align: left;
+}
+
+.share-actions input {
+  margin-bottom: 14px;
+}
+
+.share-download-button {
+  width: 100%;
+}
+
 .media-section {
   padding: 0 15px 80px;
 }

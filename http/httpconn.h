@@ -7,12 +7,26 @@
 #include "upload.h"
 #include <cstddef>
 #include <netinet/in.h>
+#include <string>
 enum class ProcessResult {
     NeedRead,
     ReadyWrite,
     NeedAuth,
     Upload,
-    Download
+    Download,
+    share,
+};
+//如果每一种状态都在loop对于一种函数，太多了
+//将其整理为一种状态（如share）
+//然后通过sta在handle-share中进行处理对于的状态
+enum class actual_ProcessResult{
+     NeedAuth,
+    Upload,
+    Download,
+     ShareCreate,//分享
+    ShareVerify,//验证提取码
+    ShareDownload,
+     ShareAccess, // GET /share/<token>
 };
 class HttpConn {
 public:
@@ -36,26 +50,26 @@ public:
     
     sockaddr_in GetAddr() const;
     
-    void process();
-//    void processAuth() {
-//     request_.DoAuth();
-//     makeResponse(HttpRequest::ParseResult::Complete);
-// }
+    ProcessResult process();
+
    //判断是否为post和可解析文本，并初始化name，pwd
    void Parseauth();
    void ParseFile() ;
-//    //查询或插入
-//     bool SqlQuary();
-//     //加密或验证
-//     bool ar_hash_and_versity();
-//     bool is_login();
+
     bool Auth_ar_and_sqlquary();
-     void set_Auth_html();
-     void set_upload_html();
+   
      //文件上传
      bool upload_file(int file_fd);
       Upload handle_upload_file();
       DownloadResult handle_down();
+    
+    //分享
+    bool handle_share();
+    bool handle_ShareAccess();
+    bool handle_ShareCreate();
+    bool handle_ShareVerify();
+    bool handle_ShareDownload();
+    responseResult status_route(actual_ProcessResult& sta);
 
     void makeResponse(responseResult  sta);
     int ToWriteBytes() const {
@@ -72,9 +86,9 @@ public:
     static bool isET;
      static const char* srcDir;
     static std::atomic<int> userCount;
-    ProcessResult sta{};
+    actual_ProcessResult sta{};
 private:
-  
+   void Response_status_parse(responseResult& sta,std::string path,int& code);
     int fd_;
     struct  sockaddr_in addr_;
 
