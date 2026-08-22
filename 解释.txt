@@ -238,6 +238,6 @@ ET下如果没有epollshot，在download进行轮换时，会一直沉睡，由�
 
 share：  
    三种情况
-   一、获取token，code（选择），会提交filename，是否要code，expiretimr
-   二、验证提取码，提交token，code（选择）
+   一、获取token，code（选择），会提交filename，是否要code，expiretime（由于没有采用stmt，因此不支持自定义时间）
+   二、验证提取码，提交token，code（选择）（这里会先请求页面，根据是否又code，返回对应的html）
    三、sha256-hex（token），通过这个在redis中获取share-id，再进行验证是否是要下载的

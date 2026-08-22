@@ -53,13 +53,13 @@ std::optional<std::string> File_shared::get_share_token(){
 }
 std::string File_shared::get_code(int bits){
       char* random_bytes=new char[bits];
-     memset(random_bytes,0,4);
+     memset(random_bytes,0,bits);
      size_t offset=0,n=0;
      //从linux提取密码学安全的256位随机bit
-     while (offset < 4) {
+     while (offset < bits) {
            n=getrandom(
              random_bytes+offset,//从哪里开始
-            4-offset//大小
+            bits-offset//大小
             ,0);
 
             if (n>0) {
@@ -118,6 +118,7 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
                 code_hah=std::move(get_code(4));
            }
            std::string expire_time="NULL";
+           //这里可能存在sql注入的分享，因此暂时不支持自定义时间
            if (time!="null") {
               expire_time="DATE_ADD(NOW(), INTERVAL "+time+" DAY)";
            }
@@ -202,7 +203,9 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
 
                 unsigned long code_len = 4;
                 std::string code_hash;
+                code_hash.reserve(4);
                 bool code_hash_is_null = false;
+                
                 res[1].buffer_type = MYSQL_TYPE_STRING;
                 res[1].buffer = const_cast<char *>(code_hash.data());
                 res[1].buffer_length = code_len;
@@ -356,7 +359,9 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
 
                 unsigned long code_len = 4;
                 std::string code_hash;
+                code_hash.resize(4);
                 bool code_hash_is_null = false;
+
                 res[0].buffer_type = MYSQL_TYPE_STRING;
                  res[0].buffer = const_cast<char *>(code_hash.data());
                  res[0].buffer_length = code_len;

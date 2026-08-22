@@ -123,6 +123,7 @@ ProcessResult HttpConn::process(){
        break;
 
      case ParseResult::Complete:
+       ret=responseResult::Complete;
        break;
      }
     if (result != ParseResult::Complete) {
@@ -184,7 +185,7 @@ ProcessResult HttpConn::process(){
       makeResponse(ret);
       return  ProcessResult::ReadyWrite;
 }
- void HttpConn::Response_status_parse(responseResult& sta,std::string path,int& code){
+ void HttpConn::Response_status_parse(responseResult& sta,std::string& path,int& code){
      switch (sta) {
        case responseResult::Complete:
             path=request_.getpath();
@@ -241,10 +242,8 @@ void HttpConn::makeResponse(responseResult  sta){
     keepAlive_=request_.IsKeepAlive();
     Response_status_parse(sta,path,code);
     
-    // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
-     request_.Init();
      //只有403在MakeResponse中用读权限判断给出
-     response_.Init(srcDir,keepAlive_,code);
+     response_.Init(srcDir,path,keepAlive_,code);
      //登录/注册
     if (sta==responseResult::Auth) {
          auto tokens=std::move( Session::Intense()->gettoken(request_.GetPost("username"))); 
@@ -260,7 +259,9 @@ void HttpConn::makeResponse(responseResult  sta){
     }
         //普通报文
          response_.MakeResponse(writeBuff_,sta);
-
+   // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
+     request_.Init();
+     
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
      iovCnt_=1;

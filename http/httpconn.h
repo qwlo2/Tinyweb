@@ -88,7 +88,7 @@ public:
     static std::atomic<int> userCount;
     actual_ProcessResult sta{};
 private:
-   void Response_status_parse(responseResult& sta,std::string path,int& code);
+   void Response_status_parse(responseResult& sta,std::string& path,int& code);
     int fd_;
     struct  sockaddr_in addr_;
 

@@ -117,13 +117,12 @@ ssize_t Buffer::ReadFd(int fd, int* saveErrno){
 ssize_t Buffer::WriteFd(int fd, size_t& len_){
    // size_t save_ReadableBytes=ReadableBytes();
    //len是要传的大小也兼顾已经write的大小
-   ssize_t offect=len_;
-    len_=0;
+   ssize_t offect=0;
     while (len_<offect) {
-    ssize_t tmp=write(fd,Peek()+len_,offect-len_);
+    ssize_t tmp=write(fd,Peek()+offect,len_-offect);
     if(tmp>0){
         // readPos_+=tmp;
-         len_+=tmp;
+         offect+=tmp;
     }
     else if (tmp<0&&errno==EINTR) {
         continue;
@@ -132,7 +131,7 @@ ssize_t Buffer::WriteFd(int fd, size_t& len_){
     break;
   }
     //2种情况，写完，错误,文件的写入没有缓冲区满
-     return len_;
+     return offect;
 }
 char* Buffer::BeginPtr_(){
     //return  &*buffer_.begin();

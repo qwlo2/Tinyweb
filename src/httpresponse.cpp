@@ -51,14 +51,18 @@ HttpResponse::HttpResponse()
 
 HttpResponse::~HttpResponse() = default;
 
-void HttpResponse::Init(const std::string& srcDir,
+void HttpResponse::Init(const std::string& srcDir,std::string& path,
                         bool isKeepAlive, int code) {
     assert(srcDir != "");
     UnmapFile();
     isKeepAlive_ = isKeepAlive;
     code_ = code;
     srcDir_ = srcDir;
-    path_ = CODE_PATH.find(code_)->second;
+   if (code>=400) {
+       path_ = CODE_PATH.find(code_)->second;
+   }else {
+      path_=path;
+   }
     // has_cookies=false;
     // is_download=false;
     fileds={};
@@ -155,7 +159,9 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
         buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
     }
     if (sta==responseResult::ShareCreate) {
-         buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
+         //https，由于我没有ssl/tls，因此暂时不管，Path=/file指挥在上传下载时发送cookie，因此设计为所有都会发，只有需要的才处理
+         buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/; HttpOnly; SameSite=Lax\r\n");
+        // buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
          buff.Append("Code:"+fileds["code"]+"\r\n\r\n");
     } 
     

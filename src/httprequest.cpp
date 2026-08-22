@@ -131,7 +131,7 @@ ParseResult HttpRequest::parse(Buffer& buff){
             std::string line(buff.Peek(),lineend-buff.Peek());
             //把剩下2个去除
             buff.RetrieveUntil(lineend+2);
-            if (line.empty()||line=="--"+post_["boundary"]) {
+            if (line.empty()||line=="--"+header_["boundary"]) {
                 if (ready_rece_data) {
                     state_=PARSE_STATE::FINISH;
                     return  ParseResult::Complete;
@@ -313,7 +313,7 @@ ParseResult HttpRequest::ParseHeader_(const std::string& line){
         if(ToLower_(value).find("chunked")!=std::string::npos){
             return ParseResult::BadRequest;
         }
-    }else if (lowerKey=="content-type"&&method_==HttpMethod::GET&&path_.starts_with("/file")) {
+    }else if (lowerKey=="content-type"&&route_==RouteType::Upload) {
        // Content-Type: multipart/form-data; boundary=----abc123
         //保持：的位置并找到;的位置
            int tmp=pos;
@@ -483,7 +483,7 @@ ParseResult HttpRequest::ParseFileBody(const std::string& line){
           file_filed.emplace_back(Trim_(line.substr(pos+1)));
            ready_rece_data=true;
     }else {
-       //此时是Content-Disposition或者
+       //此时是Content-Disposition
        pos=line.find_first_of("=");
        if (pos==std::string::npos) {
             return ParseResult::BadRequest;
@@ -491,13 +491,13 @@ ParseResult HttpRequest::ParseFileBody(const std::string& line){
        //区分普通的Content-Disposition和最后带文件名的部分
        auto pos_=line.find_last_of(";");
        if (pos_==std::string::npos) {
-        //普通的
+        //普通的(只有一个k=v)
            auto tmp=std::move(Trim_(line.substr(pos+1)));
            //要去掉双引号
-           file_filed.emplace_back(tmp.substr(2,tmp.size()-3));
+           file_filed.emplace_back(tmp.substr(1,tmp.size()-3));
        }else {
            //带文件名的
-           auto tmp=std::move(Trim_(line.substr(pos,pos_-pos)));
+           auto tmp=std::move(Trim_(line.substr(pos+1,pos_-pos)));
            file_filed.emplace_back(tmp.substr(1,tmp.size()-2));
            
            pos=line.find_last_of("=");

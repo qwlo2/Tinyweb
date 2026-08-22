@@ -175,7 +175,7 @@ bool Session::versityToken(const std::string& cookie,size_t& user_id){
        );
       // 表示连接、网络或协议错误，不是 Session 过期
       //应返回或转化为：HTTP/1.1 503 Service Unavailable
-       if (redis_sql==nullptr) {
+       if (reply==nullptr) {
         freeReplyObject(reply);
           return false;
        }

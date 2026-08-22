@@ -93,8 +93,8 @@ ThreadPool(ThreadPool&&) = default;
             {
                 std::lock_guard<std::mutex> locker(pool_->mutex_);
                  pool_->Isclose=true;
+                  pool_->tasks={};
             }
-          pool_->tasks={};
           pool_->cv.notify_all();
           for(auto& it:threads){
             if (it.joinable()) {

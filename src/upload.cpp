@@ -111,13 +111,10 @@ std::string& UploadFile::get_boundary(){
         safe_size = readable - reserve;
     }
 
-    
-       ready_write_size+=safe_size;
        int saveErrno=0;
        //hash的data和len
        auto datas=readBuff_.Peek();
-       size_t len=safe_size;
-       
+      
        ssize_t ret=readBuff_.WriteFd(file_fd, safe_size);
        writed_size+=ret;
         ready_write_size += ret;
@@ -127,7 +124,7 @@ std::string& UploadFile::get_boundary(){
            return  Upload::UploadError;
        }
        //进行增量hash
-       if (!chunkhash(datas,len)) {
+       if (!chunkhash(datas,safe_size)) {
              return Upload::UploadError;
        }
        if (is_end) {
@@ -262,6 +259,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
     }
     file_fd=-1;
     // 2. 目标不存在时才原子发布。
+     //普通的rename会出现竞争，会将存在的文件覆盖，要保证原子性，renameat2是若存在则返回
     const long ret = ::syscall(
         SYS_renameat2,
         AT_FDCWD,
@@ -271,7 +269,18 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
         RENAME_NOREPLACE//目标路径已经存在时，禁止覆盖。
     );
      int saveerron=errno;
-    //普通的rename会出现竞争，会将存在的文件覆盖，要保证原子性，renameat2是若存在则返回
+    //新文件,mysql失败则放弃文件
+    if (ret == 0&&!add_or_increment_object(fina_path)) {
+            unlink(fina_path.c_str());
+              return false;
+    }else if (saveerron == EEXIST ) {
+        // 已有相同哈希文件，删除当前临时文件。
+        ::unlink(temp_path.c_str());
+        if (!add_or_increment_object(fina_path)) {
+           return false;
+        }
+        return true;;
+    }
     int dir_fd = ::open(
     fina_path.parent_path().c_str(),
     O_RDONLY | O_DIRECTORY | O_CLOEXEC
@@ -295,17 +304,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
 // sync()
 // → 同步系统里所有挂载文件系统的脏数据
    ::close(dir_fd);
-    if (ret == 0&& add_or_increment_object(fina_path)) {
-        return true;
-    }
-
-    if (saveerron == EEXIST&& add_or_increment_object(fina_path)) {
-        // 已有相同哈希文件，删除当前临时文件。
-        ::unlink(temp_path.c_str());
-        return true;;
-    }
-
-    return false;
+    return true;
  }
 
  // 在同一事务中增加物理对象引用，并建立用户逻辑文件记录。

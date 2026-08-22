@@ -75,10 +75,15 @@ bool   Download::openfile(){
          }
        // auto rel=mysql_stmt_bind_result(MYSQL_STMT *stmt, MYSQL_BIND *bnd)
      MYSQL_BIND result[3]{};
-     result[0].buffer_type=MYSQL_TYPE_LONG;
-     result[0].buffer=&file_size;
+     std::uint64_t file_size_db = 0;
      
+     result[0].buffer_type = MYSQL_TYPE_LONGLONG;
+     result[0].buffer = &file_size_db;
+     result[0].is_unsigned = true;
+
      unsigned long pathsize=64;
+     //reserve只代表内存大小，不是元素个数
+     file_path.resize(64);
      result[1].buffer_type=MYSQL_TYPE_STRING;
      //result[1].buffer=&file_path;
     result[1].buffer= const_cast<char*>(file_path.data());
@@ -86,6 +91,7 @@ bool   Download::openfile(){
      result[1].length=&pathsize;
 
     unsigned long hashsize=64;
+    content_hash.resize(64);
      result[2].buffer_type=MYSQL_TYPE_STRING;
     // result[2].buffer=&content_hash;
       result[2].buffer=const_cast<char*>(content_hash.data());
@@ -99,7 +105,7 @@ bool   Download::openfile(){
          if (!file_ok) {
            return false;
          }
-         
+         file_size =static_cast<size_t>(file_size_db);
         fileFd=::open(file_path.c_str(), O_RDONLY);
         if (fileFd<0 ) {
            return false;
@@ -138,6 +144,9 @@ bool   Download::openfile(){
           //当 offset 参数非空时，sendfile() 本身会更新
          // offset_ += n;
           sent_this_time+=n;
+          if (sent_this_time>MAX_SEND_PER_EVENT) {
+              return  DownloadResult::NeedWrite;
+          }
           continue;
         }
        //offset_< file_size是不会有n==0
@@ -194,6 +203,6 @@ bool Download::share_init(size_t& file_id){
                 unsigned long* len=mysql_fetch_lengths(res);//len[n]每一列的长度
                    
                 user_id=std::stoi(std::string(row[0],len[0]));
-                filename=std::string(row[0],len[0]);
+                filename=std::string(row[1],len[1]);
               mysql_free_result(res);
 }
