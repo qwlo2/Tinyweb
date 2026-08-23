@@ -118,7 +118,7 @@ ssize_t Buffer::WriteFd(int fd, size_t& len_){
    // size_t save_ReadableBytes=ReadableBytes();
    //len是要传的大小也兼顾已经write的大小
    ssize_t offect=0;
-    while (len_<offect) {
+    while (offect<len_) {
     ssize_t tmp=write(fd,Peek()+offect,len_-offect);
     if(tmp>0){
         // readPos_+=tmp;

@@ -449,6 +449,10 @@ void HttpRequest::para_down_File(Download& filer){
        if(route_==RouteType::Download){
   //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
              // LOG_DEBUG("upload file:%s",file_filed.);
+              file_filed.emplace_back(path_.substr(6));
+           if (header_.contains("range")) {
+                 file_filed.emplace_back(header_["range"]);
+           }
                 filer.parase_filed(file_filed);
                  LOG_DEBUG("upload file:%s",filer.get_filename().c_str());
                 path_="/error.html";
@@ -608,7 +612,7 @@ const std::string& HttpRequest::route_token() const {
             return;
         }
 
-        return;
+       break;
 
 
     case HttpMethod::GET:
@@ -623,8 +627,8 @@ const std::string& HttpRequest::route_token() const {
     }
      // 验证是post，下载是get
     if (path_ == "/share" ||path_.starts_with("/share/")) {
-    ParseShareRoute_();
-}
+           ParseShareRoute_();
+        }
  }
  void HttpRequest::ParseShareRoute_() {
     constexpr std::string_view SHARE_PATH   = "/share";

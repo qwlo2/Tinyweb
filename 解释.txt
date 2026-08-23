@@ -240,4 +240,18 @@ share：
    三种情况
    一、获取token，code（选择），会提交filename，是否要code，expiretime（由于没有采用stmt，因此不支持自定义时间）
    二、验证提取码，提交token，code（选择）（这里会先请求页面，根据是否又code，返回对应的html）
-   三、sha256-hex（token），通过这个在redis中获取share-id，再进行验证是否是要下载的
+   三、sha256-hex（token），通过这个在redis中获取share-id，再进行验证是否是要下载的、
+
+
+read/readv：
+-1+eagain/ewould代表缓冲区为空
+>0代表读取的长的
+==0.代表连接断开
+-1 + EINTR被信号中断，应重试
+
+write/writev
+-1+eagain/ewould代表缓冲区满
+>0代表写入的长的
+==0.代表此次要求写的总长度为0
+-1+EPIPE才是关闭
+-1 + EINTR被信号中断，应重试

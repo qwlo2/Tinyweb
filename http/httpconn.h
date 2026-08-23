@@ -62,7 +62,9 @@ public:
      bool upload_file(int file_fd);
       Upload handle_upload_file();
       DownloadResult handle_down();
-    
+      DownloadResult handle_response_write();
+      bool get_download_inited();
+     actual_ProcessResult get_sta();
     //分享
     bool handle_share();
     bool handle_ShareAccess();

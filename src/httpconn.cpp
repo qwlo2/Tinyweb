@@ -178,7 +178,8 @@ ProcessResult HttpConn::process(){
                return ProcessResult::share;
         
         case RouteType::Normal:
-           // 普通静态资源
+           // 普通静态资源,sta并未在init中重置
+            sta={};
             break;
      }
       //太长以，格式错误，普通get/body直接做响应报文然后写
@@ -261,7 +262,9 @@ void HttpConn::makeResponse(responseResult  sta){
          response_.MakeResponse(writeBuff_,sta);
    // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
      request_.Init();
-     
+     file.init();
+     d_file.init();
+
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
      iovCnt_=1;
@@ -308,10 +311,15 @@ ssize_t HttpConn::write(int* saveErrno){
      do {
         len=writev(fd_, iov_,iovCnt_);
         if (len<0) {
+            //中断的时候继续，其他的直接返回
+           if (errno==EINTR) {
+              continue;
+           }
            *saveErrno=errno;
             break;
         }
         if(len==0){
+        //返回0代表，本次请求写入的总长度通常就是 0，不能用于判断连接或响应状态。
             break;
         }
        
@@ -330,6 +338,8 @@ ssize_t HttpConn::write(int* saveErrno){
            writeBuff_.Retrieve(retrieve_len);
         }
          if(ToWriteBytes()==0){
+         //这里判断了len==0的判断就失效了，因此才有了ret>0
+         //通常要一直写完，直到缓冲区满或完成
             break;
         }
      }while (isET||ToWriteBytes()>10240);
@@ -377,10 +387,33 @@ Upload HttpConn ::handle_upload_file(){
      }
     }
 }
+bool HttpConn::get_download_inited(){
+     return d_file.inited;
+}
+DownloadResult HttpConn::handle_response_write(){
+   
+    while (true) {
+        int errno_=0;
+     int ret=write(&errno_);
+      
+     if (ToWriteBytes()==0) {//由于conn.write的设计，返回值为>0和-1+EWOULDBLOCK，或者错误；0被避免了
+        //ret==0不能判断是否写完，要根据iov的长度来判断
+          d_file.inited=false;
+          return  DownloadResult::Finished;
+     }else if (ret<0&&(errno_==EWOULDBLOCK||errno_==EAGAIN)) {
+           //loop还要进行特殊处理，暂时未处理
+             d_file.inited=true;
+           return  DownloadResult::NeedWrite;
+
+     }else {
+        d_file.inited=false;
+       return  DownloadResult::Error;
+     }
+     }
+} 
 DownloadResult HttpConn::handle_down(){
     if (d_file.inited) {
           //先打开文件，来判断响应报文的code
-           d_file.inited=false;
      if (!d_file.openfile()) {
         
         makeResponse(responseResult::ServerError);
@@ -388,24 +421,16 @@ DownloadResult HttpConn::handle_down(){
         return  DownloadResult::Error;
      }
      //放在process时，当中途错误，仍然会创建错误的报文
-     makeResponse(responseResult::Download);
-     while (true) {
-        int errno_=0;
-     int ret=write(&errno_);
-     //缓冲区读完
-     if (ret<0&&(errno_==EWOULDBLOCK||errno_==EAGAIN)) {
-           // return  DownloadResult::NeedWrite;
-           //将file和buf混合一些，第一次可以大一点
-           break;
-     }else if (ret>0) {
-           continue;
-     }else {
-       return  DownloadResult::Error;
-     }
-     }
+      makeResponse(responseResult::Download);
+
+      if (auto ret=std::move(handle_response_write());ret!=DownloadResult::Finished) {
+          return ret;
+      }
     }
     return  d_file.handle_down(fd_);
 }
+
+
 bool HttpConn::handle_share(){
     switch (sta) {
        case actual_ProcessResult::ShareCreate:
@@ -424,7 +449,7 @@ bool HttpConn::handle_ShareCreate(){
     if (!versityToken(user_id)) {
         return false;
     }
-   auto res=std::move( File_shared::init()->share_file(request_.GetPost("code"),
+   auto res=std::move( File_shared::Instance()->share_file(request_.GetPost("code"),
                       user_id, request_.GetPost("filename"),request_.GetPost("expire_time")));
         if (!res) {
            return false;
@@ -434,7 +459,7 @@ bool HttpConn::handle_ShareCreate(){
         return true;
 }
 bool HttpConn::handle_ShareAccess(){
-     auto res=std::move( File_shared::init()->vsersity_ShareAccess(request_.Getheader("cookies")));
+     auto res=std::move( File_shared::Instance()->vsersity_ShareAccess(request_.Getheader("cookie")));
      if (res!="") {
          response_.set_filed("has_code", res);
          return true;
@@ -442,15 +467,16 @@ bool HttpConn::handle_ShareAccess(){
      return false;
 }
 bool HttpConn::handle_ShareVerify(){
-      return  File_shared::init()->versity_share_token(request_.Getheader("cookie"),request_.GetPost("code"));
+      return  File_shared::Instance()->versity_share_token(request_.Getheader("cookie"),request_.GetPost("code"));
 }
 bool HttpConn::handle_ShareDownload(){
     auto auth_hash=sha256_hex(std::move(request_.Getheader("cookie")));
     size_t file_id=0;
-    if ( File_shared::init()->versity_doenload( file_id,auth_hash)) {
+    if ( File_shared::Instance()->versity_doenload( file_id,auth_hash)) {
          d_file.share_init(file_id);
          d_file.inited=true;
          //不知道是否要切换状态
+         sta=actual_ProcessResult::Download;
          return true;
     }
     return false;
@@ -474,3 +500,6 @@ responseResult HttpConn::status_route(actual_ProcessResult& sta){
                 return responseResult::ShareDownload;
        }
 }
+ actual_ProcessResult HttpConn::get_sta(){
+     return sta;
+ }

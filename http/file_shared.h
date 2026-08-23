@@ -7,11 +7,12 @@
 class File_shared{
    private:
     std::optional<std::string> get_share_token();
-    std::string get_code(int bits);
+    char* get_code(int bits);
+  
      bool valid_filename(const std::string& filename);
      bool valid_share_token(const std::string& token);
    public:
-     static  File_shared*  init();
+     static  File_shared*  Instance();
      //此时也要验证登录，来获取user-id
      std::optional<std::pair<std::string,std::string>>  share_file(const std::string& has_code,size_t& user_id,const std::string& filename,const std::string& time);
      //验证码通过进入是否下载html

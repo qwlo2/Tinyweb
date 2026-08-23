@@ -10,7 +10,7 @@
 
 void Download::parase_filed(std::list<std::string>& list){
     // path=/file/a.txt
-    //已经在parseResult解决
+    //已经在para_down_File解决
     filename=list.front();
     if (list.size()>1) {
         auto tmp=list.back();
@@ -32,7 +32,7 @@ void Download::parase_filed(std::list<std::string>& list){
               close(fileFd);
            }
            fileFd=-1;
-           inited=false;
+
  }
   Download::~Download(){
       if (fileFd>0) {
@@ -81,9 +81,10 @@ bool   Download::openfile(){
      result[0].buffer = &file_size_db;
      result[0].is_unsigned = true;
 
-     unsigned long pathsize=64;
+     unsigned long pathsize=84;
      //reserve只代表内存大小，不是元素个数
-     file_path.resize(64);
+     file_path.resize(84);
+     //data/object/ab/cd/storge_path，也就是64+18=82
      result[1].buffer_type=MYSQL_TYPE_STRING;
      //result[1].buffer=&file_path;
     result[1].buffer= const_cast<char*>(file_path.data());
@@ -184,7 +185,7 @@ bool Download::share_init(size_t& file_id){
                   const std::string order = "SELECT user_id ,file_name from file where file_id="+std::to_string(file_id);
                     
               bool sussecc=mysql_query(sql.get(), order.c_str());
-              if (!sussecc) {
+              if (sussecc) {
                   LOG_ERROR("share down_init select error");
                   return false;
               }

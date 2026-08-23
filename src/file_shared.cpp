@@ -12,7 +12,6 @@
 #include <string>
 #include <sys/random.h>
 #include <utility>
-
 std::optional<std::string> File_shared::get_share_token(){
 
     auto random_bytes=std::move(get_code(16));
@@ -51,7 +50,7 @@ std::optional<std::string> File_shared::get_share_token(){
     }
     return  token;
 }
-std::string File_shared::get_code(int bits){
+char* File_shared::get_code(int bits){
       char* random_bytes=new char[bits];
      memset(random_bytes,0,bits);
      size_t offset=0,n=0;
@@ -71,11 +70,12 @@ std::string File_shared::get_code(int bits){
               continue;
            }
         LOG_ERROR("session random_bytes creates error");
-        return "";
+        return nullptr;
      }
+
      return random_bytes;
 }
-  File_shared*   File_shared::init(){
+  File_shared*   File_shared::Instance(){
      static File_shared share;
      return  &share;
 }
@@ -115,7 +115,35 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
            }
            std::string code_hah="NULL";
            if (has_code=="true") {
-                code_hah=std::move(get_code(4));
+                 auto tmp=std::move(get_code(4));
+                 static constexpr char TABLE[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                                 "abcdefghijklmnopqrstuvwxyz"
+                                                 "0123456789-_";
+                 std::string str;
+                 str.reserve(22);
+                 size_t n = 0;
+                 while (n + 3 < 4) {
+                   // 3*8=4*6刚好一次四字节，unsigned int才是4字节
+                   unsigned int i = static_cast<unsigned int>(tmp[n]) << 16 |
+                                    static_cast<unsigned int>(tmp[n + 1]) << 8 |
+                                    static_cast<unsigned int>(tmp[n + 2]);
+                   // 0x3f保证后6bit为1
+                   str.push_back(TABLE[(i >> 18) & 0x3f]);
+                   str.push_back(TABLE[(i >> 12) & 0x3f]);
+                   str.push_back(TABLE[(i >> 6) & 0x3f]);
+                   str.push_back(TABLE[i & 0x3f]);
+
+                   n += 3;
+                 }
+                // 处理最后2字节，32%/=2
+                if (n + 1 == 4) {
+                  const unsigned int value =
+                      (static_cast<unsigned int>(tmp[n]) << 16) ;
+                  str.push_back(TABLE[(value >> 10) & 0x3F]);
+                  // 后2为补0
+                  str.push_back(TABLE[(value >> 4) & 0x3F]);
+                }
+                code_hah.swap(str);
            }
            std::string expire_time="NULL";
            //这里可能存在sql注入的分享，因此暂时不支持自定义时间
@@ -123,9 +151,13 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
               expire_time="DATE_ADD(NOW(), INTERVAL "+time+" DAY)";
            }
             auto sql=SqlConnPool::Instance()->GetConn();
-    
-           std::shared_ptr< MYSQL_STMT> pre_stmt(mysql_stmt_init(sql.get()));
-
+           // MYSQL_STMT* pre_stmt.get()(mysql_stmt_init(sql.get()));
+            std::shared_ptr<MYSQL_STMT> pre_stmt(mysql_stmt_init(sql.get()),
+               [](MYSQL_STMT* stmt){
+                     if(stmt){
+                        mysql_stmt_close(stmt);
+                     }
+                  });
             const std::string order =
                 "INSERT INTO share "
                 "(share_token, file_id, code_hash, expire_time) "
@@ -152,12 +184,10 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
                                 mysql_stmt_bind_param(pre_stmt.get(), bind) == 0 &&
                                 mysql_stmt_execute(pre_stmt.get()) == 0;
                 if (!file_ok) {
-                    mysql_stmt_close(pre_stmt.get());
                      return std::nullopt;
                 }
                 //插入了几行，看是否存在文件
                 file_ok= mysql_stmt_affected_rows(pre_stmt.get());
-                 mysql_stmt_close(pre_stmt.get());
                 if (!file_ok) {
                  //插入失败
                    return std::nullopt;
@@ -171,7 +201,12 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
         }
          auto sql=SqlConnPool::Instance()->GetConn();
     
-           std::shared_ptr< MYSQL_STMT> pre_stmt(mysql_stmt_init(sql.get()));
+          std::shared_ptr<MYSQL_STMT> pre_stmt(mysql_stmt_init(sql.get()),
+               [](MYSQL_STMT* stmt){
+                     if(stmt){
+                        mysql_stmt_close(stmt);
+                     }
+                  });
 
             const std::string order="SELECT file_id,code_hash from share where share_token=? "
                                     " AND (expire_time IS NULL OR expire_time > NOW() );";
@@ -191,7 +226,6 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
                            mysql_stmt_bind_param(pre_stmt.get(), bind) == 0 &&
                            mysql_stmt_execute(pre_stmt.get()) == 0;
             if (!file_ok) {
-              mysql_stmt_close(pre_stmt.get());
               return false;
             }
                 MYSQL_BIND res[2]{};
@@ -203,7 +237,7 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
 
                 unsigned long code_len = 4;
                 std::string code_hash;
-                code_hash.reserve(4);
+                code_hash.resize(4);
                 bool code_hash_is_null = false;
                 
                 res[1].buffer_type = MYSQL_TYPE_STRING;
@@ -216,7 +250,6 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
                 file_ok=mysql_stmt_bind_result(pre_stmt.get(),res)==0&&
                    mysql_stmt_store_result(pre_stmt.get())==0&&mysql_stmt_fetch(pre_stmt.get())==0;
 
-                    mysql_stmt_close(pre_stmt.get());
                  if (!file_ok) {
                     return false;
                  }
@@ -268,7 +301,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                  //nullptr代表底层客户端出错
                   // 表示连接、网络或协议错误，不是 Session 过期
                   // 应返回或转化为：HTTP/1.1 503 Service Unavailable
-                  if (!reply) {
+                  if (reply) {
                      LOG_ERROR("share_auth select error");
                      freeReplyObject(reply);
                      return  false;
@@ -301,7 +334,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                     
               bool sussecc=mysql_query(sql.get(), order.c_str());
               if (!sussecc) {
-                  LOG_ERROR("share-id select error");
+                  LOG_ERROR("shared cancle");
                   return false;
               }
               MYSQL_RES* res=mysql_store_result(sql.get());
@@ -331,10 +364,14 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
            return  "";
         }
         auto sql=SqlConnPool::Instance()->GetConn();
-    
-        std::shared_ptr< MYSQL_STMT> pre_stmt(mysql_stmt_init(sql.get()));
-
-        const std::string order="SELECT code_hash from share where share_token=?"
+      //判断code
+      std::shared_ptr<MYSQL_STMT> pre_stmt(mysql_stmt_init(sql.get()),
+               [](MYSQL_STMT* stmt){
+                     if(stmt){
+                        mysql_stmt_close(stmt);
+                     }
+                  });
+        const std::string order="SELECT code_hash share_id from share where share_token=?"
                                     "  AND (expire_time IS NULL OR expire_time > NOW() );";
                  bool sussecc=mysql_query(sql.get(), order.c_str());
                MYSQL_BIND bind[1]{};
@@ -352,10 +389,10 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                            mysql_stmt_bind_param(pre_stmt.get(), bind) == 0 &&
                            mysql_stmt_execute(pre_stmt.get()) == 0;
             if (!file_ok) {
-              mysql_stmt_close(pre_stmt.get());
               return "";
             }
-             MYSQL_BIND res[1]{};
+            //加入redis，设置auth-token
+                MYSQL_BIND res[2]{};
 
                 unsigned long code_len = 4;
                 std::string code_hash;
@@ -367,15 +404,46 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                  res[0].buffer_length = code_len;
                  res[0].length = &code_len;
                  res[0].is_null=&code_hash_is_null;
-
+                 
+                unsigned long share_id;
+                res[1].buffer_type = MYSQL_TYPE_LONGLONG;
+                res[1].buffer = &share_id;
+                res[1].is_unsigned = true;
 
                 file_ok=mysql_stmt_bind_result(pre_stmt.get(),res)==0&&
                    mysql_stmt_store_result(pre_stmt.get())==0&&mysql_stmt_fetch(pre_stmt.get())==0;
 
-                    mysql_stmt_close(pre_stmt.get());
                  if (!file_ok) {
                     return "";
                  }
                  //会返回1，0的字符
+                  //code是null或者code正确
+                auto redis_sql=Session::Intense()->GetConn();
+                //key,value
+                std::string share_auth="share_auth:"+sha256_hex(token);
+                std::string value=std::to_string(share_id);
+                const std::string ttl =std::to_string(1800);
+
+                auto reply = static_cast<redisReply *>(redisCommand(
+                    redis_sql.get(),
+                     "SET %b %b EX %s NX", 
+                     share_auth.data(),
+                    share_auth.size(), 
+                    value.data(),
+                     value.size(), 
+                     ttl.data()));
+                 //nullptr代表底层客户端出错
+                  if (!reply) {
+                     LOG_ERROR("share_auth creates error");
+                     freeReplyObject(reply);
+                     return  "";
+                  }
+                  if (reply->type != REDIS_REPLY_STATUS ||
+                      std::string(reply->str, reply->len) != "OK") {
+                    LOG_ERROR("share_auth creates error");
+                    freeReplyObject(reply);
+                    return "";
+                  }
+                  freeReplyObject(reply);
                  return  code_hash_is_null?"true":"false";
  }

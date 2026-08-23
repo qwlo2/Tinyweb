@@ -65,7 +65,9 @@ void HttpResponse::Init(const std::string& srcDir,std::string& path,
    }
     // has_cookies=false;
     // is_download=false;
-    fileds={};
+   // fileds={};
+   //在init前可能就设置某些字段，因此在MakeResponse后重置
+     file_={};
 }
 void HttpResponse::set_filed(std::string name,std::string filed){
      fileds.emplace(name,filed);
@@ -116,7 +118,7 @@ void HttpResponse::MakeResponse(Buffer& buff,responseResult sta) {
     AddStateLine_(buff,sta);
     AddHeader_(buff,sta);
     AddContent_(buff,sta);
-    file_={};
+    fileds={};
 }
 
 void HttpResponse::ErrorHtml_() {
@@ -151,22 +153,27 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     //HttpOnly代表浏览器可以保存它、发送它，但是网页里的 JavaScript 不能直接读取它。
     //Secure表示这个 Cookie 只通过 HTTPS 请求发送。
     //SameSite 主要限制：从其他网站发起的请求，浏览器要不要携带你的 Cookie。
-       buff.Append("Set-Cookie:session="+fileds["cookie"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
+       buff.Append("Set-Cookie:session="+fileds["cookie"]+"; Path=/file; HttpOnly;  SameSite=Lax\r\n");
     }
      buff.Append("Content-type:"+GetFileType_()+"\r\n");
-    if (sta==responseResult::Download) {
-        buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
-        buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
-    }
+
     if (sta==responseResult::ShareCreate) {
          //https，由于我没有ssl/tls，因此暂时不管，Path=/file指挥在上传下载时发送cookie，因此设计为所有都会发，只有需要的才处理
          buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/; HttpOnly; SameSite=Lax\r\n");
         // buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
-         buff.Append("Code:"+fileds["code"]+"\r\n\r\n");
+         buff.Append("Code:"+fileds["code"]+"\r\n");
     } 
     
 }
 void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.size
+    //这里还写入Content，因此要返回
+    //file取决于是否有对应的html文件，因此这里的顺序暂定
+    //下载时是先把响应报文发完，在发文件，html的位置暂定
+    if (sta==responseResult::Download) {
+        buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
+        buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
+        return;
+    }
      if(!file_){
         ErrorContent(buff,"File NotFound");
         return;

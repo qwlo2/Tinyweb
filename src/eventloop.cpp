@@ -210,6 +210,31 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                 }
        });
  }
+ void eventloop::handle_response_write(int fd,const std::shared_ptr<HttpConn> conn){
+       auto ret=std::move(conn->handle_response_write());
+        switch (ret) {
+                    case DownloadResult::NeedWrite:
+                                      //缓冲区满，响应报文还没进行文件传输
+                                         push_and_do_task([this, fd, conn]() {
+                                               if (!isCurrentConnection(fd, conn)) {
+                                                       return;
+                                                 }
+                                                 ep->ModFd(fd, EPOLLOUT | event); 
+                                         });
+                                   break;
+                    case DownloadResult::Finished:
+                                          //开始进行文件传输
+                                          hadleDownload(fd, conn);
+                                   break;
+                    case DownloadResult::Error:
+                                        //响应报文传输失败
+                                        push_and_do_task([this, fd, conn] {
+                                            if (isCurrentConnection(fd, conn)) {
+                                                      closeconn(fd);
+                                             }
+                                          });
+                }
+ }
   void eventloop::hadleDownload(int fd,const std::shared_ptr<HttpConn> conn){
            ThreadPool::init_File()->AddTask([fd,this,conn](){
                 auto ret=std::move(conn->handle_down());
@@ -270,9 +295,16 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                            //失败
                           if (!conn->handle_share()) {
                                conn->makeResponse(responseResult::ServerError);
-                
+                               push_and_do_task([this, fd, conn]() {
+                                                       if (!isCurrentConnection(fd, conn)) {
+                                                                  return;
+                                                       }
+                                                         ep->ModFd(fd,EPOLLOUT|event);
+                                                      }); 
+                             return 
+                             ;
                           }
-                          if (conn->sta==actual_ProcessResult::ShareDownload) {
+                          if (conn->sta==actual_ProcessResult::Download) {
                                  hadleDownload(fd,conn);
                                  return ;
                           }
@@ -305,7 +337,7 @@ void eventloop::Onread(int fd,const std::shared_ptr<HttpConn> conn){
        int saveerrno = 0;
        int ret = conn->read(&saveerrno);
        if (ret < 0 && (saveerrno == EAGAIN || saveerrno == EWOULDBLOCK)) {
-         // 当返回只为-1，即第一次就是-1，重新读
+         // 当返回只为-1，即缓冲区为空，重新读
              push_and_do_task([this, fd, conn]() {
                if (!isCurrentConnection(fd, conn)) {
                  return;
@@ -365,16 +397,19 @@ void eventloop::DealWrite(int fd){
 }
 void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
     //写完，未写完，没写三种情况
-    //
-
-      if (!isCurrentConnection(fd, conn)) {
-        return;
-      }
       ThreadPool::init_io()->AddTask([this,fd,conn](){
       // if (conn->sta==ProcessResult::NeedAuth ) {
       //     conn->makeResponse(HttpRequest::ParseResult::Complete);
       //       conn->sta = ProcessResult::ReadyWrite;
       // }
+      if (conn->get_sta()==actual_ProcessResult::Download) {
+             if (conn->get_download_inited()) {
+                  handle_response_write(fd, conn);
+             }else {
+                hadleDownload(fd, conn);
+             }
+             return ;
+        }
          int saveerrno=0;
          int ret=conn->write(&saveerrno);
      if (conn->ToWriteBytes()==0) {
