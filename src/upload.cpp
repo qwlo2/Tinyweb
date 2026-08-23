@@ -191,7 +191,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
        }
      //临时文件
       if (!std::filesystem::is_directory("data/tmp")) {
-             std::filesystem::create_directory("data/tmp");
+             std::filesystem::create_directories("data/tmp");
         }
        if (!std::filesystem::is_directory("data/object")) {
              std::filesystem::create_directory("data/object");
@@ -276,6 +276,8 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
     }else if (saveerron == EEXIST ) {
         // 已有相同哈希文件，删除当前临时文件。
         ::unlink(temp_path.c_str());
+        //可能一直保持EEXIST没有改变过
+        errno=0;
         if (!add_or_increment_object(fina_path)) {
            return false;
         }

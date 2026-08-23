@@ -153,7 +153,7 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     //HttpOnly代表浏览器可以保存它、发送它，但是网页里的 JavaScript 不能直接读取它。
     //Secure表示这个 Cookie 只通过 HTTPS 请求发送。
     //SameSite 主要限制：从其他网站发起的请求，浏览器要不要携带你的 Cookie。
-       buff.Append("Set-Cookie:session="+fileds["cookie"]+"; Path=/file; HttpOnly;  SameSite=Lax\r\n");
+       buff.Append("Set-Cookie:session="+fileds["cookie"]+"; Path=/; HttpOnly;  SameSite=Lax\r\n");
     }
      buff.Append("Content-type:"+GetFileType_()+"\r\n");
 

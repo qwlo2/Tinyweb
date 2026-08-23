@@ -76,7 +76,7 @@ template<class T>
  }
 template<class T>
  bool  BlockDeque<T>::empty(){
-     std::lock_guard<std::mutex> lock(mutex_);
+     //std::lock_guard<std::mutex> lock(mutex_);
     return  deq.empty();
  }
 
@@ -120,9 +120,9 @@ void  BlockDeque<T>::push_back(const T &item){
 template<class T>
 void  BlockDeque<T>::push_front(const T &item){
      std::unique_lock<std::mutex> lock(mutex_);
-    condProducer_.wait(lock, condProducer_.wait(lock,[this](){
+    condProducer_.wait(lock, [this](){
        return deq.size()<capacity_;
-     }));
+     });
      if(isClose_){
         return ;
      }

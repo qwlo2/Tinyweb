@@ -24,7 +24,7 @@ std::optional<std::string> File_shared::get_share_token(){
      std::string token;
      token.reserve(22);
      size_t n=0;
-     while (n+3<22) {
+     while (n+3<16) {
         //3*8=4*6刚好一次四字节，unsigned int才是4字节
          unsigned int i=static_cast<unsigned int>(random_bytes[n])<<16|
                         static_cast<unsigned int>(random_bytes[n+1])<<8|
@@ -48,6 +48,7 @@ std::optional<std::string> File_shared::get_share_token(){
         //后2为补0
         token.push_back(TABLE[(value >> 6) & 0x3F]);
     }
+    delete [] random_bytes;
     return  token;
 }
 char* File_shared::get_code(int bits){
@@ -208,7 +209,7 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
                      }
                   });
 
-            const std::string order="SELECT file_id,code_hash from share where share_token=? "
+            const std::string order="SELECT share_id,code_hash from share where share_token=? "
                                     " AND (expire_time IS NULL OR expire_time > NOW() );";
 
                 MYSQL_BIND bind[1]{};
@@ -301,7 +302,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                  //nullptr代表底层客户端出错
                   // 表示连接、网络或协议错误，不是 Session 过期
                   // 应返回或转化为：HTTP/1.1 503 Service Unavailable
-                  if (reply) {
+                  if (!reply) {
                      LOG_ERROR("share_auth select error");
                      freeReplyObject(reply);
                      return  false;
@@ -333,7 +334,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                   const std::string order = "SELECT share_token ,file_id from share where share_id="+std::to_string(share_id);
                     
               bool sussecc=mysql_query(sql.get(), order.c_str());
-              if (!sussecc) {
+              if (sussecc) {
                   LOG_ERROR("shared cancle");
                   return false;
               }
@@ -371,7 +372,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                         mysql_stmt_close(stmt);
                      }
                   });
-        const std::string order="SELECT code_hash share_id from share where share_token=?"
+        const std::string order="SELECT code_hash ,share_id from share where share_token=?"
                                     "  AND (expire_time IS NULL OR expire_time > NOW() );";
                  bool sussecc=mysql_query(sql.get(), order.c_str());
                MYSQL_BIND bind[1]{};
@@ -393,10 +394,10 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
             }
             //加入redis，设置auth-token
                 MYSQL_BIND res[2]{};
-
-                unsigned long code_len = 4;
+                //getrandom的字符可能无法表示，用base64url有翻译了，就是6B
+                unsigned long code_len = 6;
                 std::string code_hash;
-                code_hash.resize(4);
+                code_hash.resize(6);
                 bool code_hash_is_null = false;
 
                 res[0].buffer_type = MYSQL_TYPE_STRING;

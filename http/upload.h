@@ -21,7 +21,7 @@ class UploadFile{
         size_t ready_write_size;
         EVP_MD_CTX* hash_ctx_ { nullptr};
         std::filesystem::path temp_path;
-        int file_fd;
+        int file_fd{-1};
         std::unordered_map<std::string, std::string> fileds;
     public:
        void init();

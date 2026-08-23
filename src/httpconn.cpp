@@ -263,7 +263,7 @@ void HttpConn::makeResponse(responseResult  sta){
    // 本次请求已经形成响应，解析器状态重置；readBuff_ 中未消费的下一请求字节会保留。
      request_.Init();
      file.init();
-     d_file.init();
+    // d_file.init();放在handle-down中，因为响应报文之后才是正式的d-file开始传输文件
 
      iov_[0].iov_base=const_cast<char*>(writeBuff_.Peek());
      iov_[0].iov_len=writeBuff_.ReadableBytes();
@@ -427,7 +427,11 @@ DownloadResult HttpConn::handle_down(){
           return ret;
       }
     }
-    return  d_file.handle_down(fd_);
+    auto tmp=std::move(d_file.handle_down(fd_));
+    if (tmp==DownloadResult::Finished) {
+       d_file.init();
+    }
+    return  tmp;
 }
 
 
@@ -459,7 +463,7 @@ bool HttpConn::handle_ShareCreate(){
         return true;
 }
 bool HttpConn::handle_ShareAccess(){
-     auto res=std::move( File_shared::Instance()->vsersity_ShareAccess(request_.Getheader("cookie")));
+     auto res=std::move( File_shared::Instance()->vsersity_ShareAccess(request_.route_token()));
      if (res!="") {
          response_.set_filed("has_code", res);
          return true;
@@ -467,15 +471,16 @@ bool HttpConn::handle_ShareAccess(){
      return false;
 }
 bool HttpConn::handle_ShareVerify(){
-      return  File_shared::Instance()->versity_share_token(request_.Getheader("cookie"),request_.GetPost("code"));
+      return  File_shared::Instance()->versity_share_token(request_.route_token(),request_.GetPost("code"));
 }
 bool HttpConn::handle_ShareDownload(){
-    auto auth_hash=sha256_hex(std::move(request_.Getheader("cookie")));
+    auto auth_hash="share_auth:"+sha256_hex(std::move(request_.route_token()));
     size_t file_id=0;
     if ( File_shared::Instance()->versity_doenload( file_id,auth_hash)) {
-         d_file.share_init(file_id);
+         if (!d_file.share_init(file_id)) {
+              return false;
+         }
          d_file.inited=true;
-         //不知道是否要切换状态
          sta=actual_ProcessResult::Download;
          return true;
     }

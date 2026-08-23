@@ -17,7 +17,7 @@ class Download{
         std::string content_hash;
          size_t  file_size;
          size_t offset;//拖拉
-         int   fileFd;
+         int   fileFd{-1};
    public:
           ~Download();
           void parase_filed(std::list<std::string>& list);

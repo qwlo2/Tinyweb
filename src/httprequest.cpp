@@ -335,7 +335,7 @@ ParseResult HttpRequest::ParseHeader_(const std::string& line){
            lowerKey=ToLower_(key);
     }
     if (lowerKey=="cookie") {
-      value= lowerKey.substr(lowerKey.find_first_of("=")+1);
+      value= value.substr(value.find_first_of("=")+1);
     }
     header_[lowerKey]=value;
     return ParseResult::Complete;

@@ -428,14 +428,19 @@ void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
                      
                   }else if (sta==ProcessResult::NeedAuth) {
                       handleAuth(fd, conn);
-                  } else {                    
-                         push_and_do_task([this, fd, conn]() {
-                              if (!isCurrentConnection(fd, conn)) {
-                                  return;
-                              }
-                              ep->ModFd(fd,EPOLLOUT|event);
-                          });            
-                    
+                  } else if (sta == ProcessResult::Upload) {
+                    hadleUpload(fd, conn);
+                  } else if (sta == ProcessResult::Download) {
+                    hadleDownload(fd, conn);
+                  } else if (sta == ProcessResult::share) {
+                    hadleShare(fd, conn);
+                  } else {
+                    push_and_do_task([this, fd, conn]() {
+                      if (!isCurrentConnection(fd, conn)) {
+                        return;
+                      }
+                      ep->ModFd(fd, EPOLLOUT | event);
+                    });
                   }
               });
               return ;
