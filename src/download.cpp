@@ -191,11 +191,6 @@ DownloadResult   Download::openfile(){
           }
           continue;
         }
-       //offset_< file_size是不会有n==0
-        if (n == 0) {
-          // 文件已经到 EOF
-          return DownloadResult::Finished;
-        }
 
         if (errno == EINTR) {
           // 被信号中断，重新调用
@@ -212,6 +207,11 @@ DownloadResult   Download::openfile(){
         // 下载失败
         break;
       }
+       //n > 0是不会有n==0
+        if (remain == 0) {
+          // 文件已经到 EOF
+          return DownloadResult::Finished;
+        }
        return DownloadResult::Error;
 }   
 

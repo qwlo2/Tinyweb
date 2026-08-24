@@ -164,8 +164,8 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
                 "(share_token, file_id, code_hash, expire_time) "
                 "SELECT " +
                 token_sql + ", file_id, " + code_sql +
-                ", NULL "
-                "FROM file "
+                ", "+expire_time+
+                " FROM file "
                 "WHERE user_id = " +
                 std::to_string(user_id) + " AND file_name = ?";
             MYSQL_BIND bind[1]{};
@@ -235,9 +235,9 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
                 res[0].buffer = &share_id;
                 res[0].is_unsigned = true;
 
-                unsigned long code_len = 4;
+                unsigned long code_len = 6;
                 std::string code_hash;
-                code_hash.resize(4);
+                code_hash.resize(6);
                 bool code_hash_is_null = false;
                 
                 res[1].buffer_type = MYSQL_TYPE_STRING;
@@ -350,7 +350,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                  return false;
                }
                 unsigned long* len=mysql_fetch_lengths(res);//len[n]每一列的长度
-                    if (sha256_hex("share_auth:"+std::string(row[0],len[0]))!=auth_hash) {
+                    if ("share_auth:"+sha256_hex(std::string(row[0],len[0]))!=auth_hash) {
                          LOG_DEBUG("share not exits");
                          return false;
                     }   

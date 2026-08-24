@@ -266,7 +266,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                       handleAuth(fd, conn);
                                             }else if (sta==ProcessResult::Download) {
                                                       hadleDownload(fd, conn);
-                                            } if (sta==ProcessResult::share) {
+                                            }else if (sta==ProcessResult::share) {
                                                       hadleShare(fd, conn);
                                             }  else {                    
                                                     push_and_do_task([this, fd, conn]() {
@@ -287,9 +287,9 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                       closeconn(fd);
                                              }
                                           });
+                                          break;
                     case DownloadResult::RangeError:
-                                          ThreadPool::init_io()->AddTask([fd,this,conn](){
-                                         conn->makeResponse(responseResult::RangeError);
+                                        
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
@@ -297,8 +297,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                  ep->ModFd(fd, EPOLLOUT | event); 
                                          });
                                          LOG_DEBUG("download Error")
-                                   });
-                                   break;
+                                          break;
                 }
        });
   }

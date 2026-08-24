@@ -262,13 +262,15 @@ void HttpConn::makeResponse(responseResult  sta){
         response_.set_filed("cookie",tokens.value());
     }else if (sta==responseResult::Download) {
       response_.set_filed("filename", d_file.get_filename());
-      response_.set_filed("range_valid", "true");
-      response_.set_filed("Accept-Ranges", "bytes");
+       response_.set_filed("Accept-Ranges", "bytes");
 
-      response_.set_filed("Content-Range",
+       if (d_file.get_range_valid()) {
+           response_.set_filed("range_valid", "true");
+            response_.set_filed("Content-Range",
                           "bytes " + std::to_string(d_file.get_range_start()) +
                               "-" + std::to_string(d_file.get_range_end()) +
                               "/" + std::to_string(d_file.get_file_size()));
+       }
       response_.set_filed("Content-Length: ",
                           std::to_string(d_file.get_content_length()));
     }else if (sta==responseResult::RangeError ) {
