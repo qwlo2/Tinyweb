@@ -37,16 +37,12 @@ std::optional<std::string> File_shared::get_share_token(){
               
                 n+=3;
      }
-   //处理最后2字节，32%/=2
-    if (n+ 2 ==22) {
+    if (n+ 1 ==16) {
         const unsigned int value =
-            (static_cast<unsigned int>(random_bytes[n]) << 16) |
-            (static_cast<unsigned int>(random_bytes[n + 1]) << 8);
-
-        token.push_back(TABLE[(value >> 18) & 0x3F]);
-        token.push_back(TABLE[(value >> 12) & 0x3F]);
-        //后2为补0
-        token.push_back(TABLE[(value >> 6) & 0x3F]);
+                      (static_cast<unsigned int>(random_bytes[n]) << 8) ;
+                  token.push_back(TABLE[(value >> 10) & 0x3F]);
+                  // 后2为补0
+                  token.push_back(TABLE[(value >> 4) & 0x3F]);
     }
     delete [] random_bytes;
     return  token;
@@ -136,10 +132,9 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
 
                    n += 3;
                  }
-                // 处理最后2字节，32%/=2
                 if (n + 1 == 4) {
                   const unsigned int value =
-                      (static_cast<unsigned int>(tmp[n]) << 16) ;
+                      (static_cast<unsigned int>(tmp[n]) << 8) ;
                   str.push_back(TABLE[(value >> 10) & 0x3F]);
                   // 后2为补0
                   str.push_back(TABLE[(value >> 4) & 0x3F]);
@@ -159,34 +154,38 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
                         mysql_stmt_close(stmt);
                      }
                   });
+            const std::string token_sql = "'" + token.value() + "'";
+
+            const std::string code_sql =
+                has_code == "true" ? "'" + code_hah + "'" : "NULL";
+
             const std::string order =
                 "INSERT INTO share "
                 "(share_token, file_id, code_hash, expire_time) "
                 "SELECT " +
-                token.value() + ", file_id, " +code_hah + ", " +
-                expire_time +
-                " FROM file "
-                 "WHERE user_id = " + std::to_string(user_id) +
-                 " AND file_name = ?";
-                
-                 MYSQL_BIND bind[1]{};
+                token_sql + ", file_id, " + code_sql +
+                ", NULL "
+                "FROM file "
+                "WHERE user_id = " +
+                std::to_string(user_id) + " AND file_name = ?";
+            MYSQL_BIND bind[1]{};
 
-                 unsigned long filename_len =
-                     static_cast<unsigned long>(filename.size());
+            unsigned long filename_len =
+                static_cast<unsigned long>(filename.size());
 
-                 bind[0].buffer_type = MYSQL_TYPE_STRING;
-                 bind[0].buffer = const_cast<char *>(filename.data());
-                 bind[0].buffer_length = filename_len;
-                 bind[0].length = &filename_len;
+            bind[0].buffer_type = MYSQL_TYPE_STRING;
+            bind[0].buffer = const_cast<char *>(filename.data());
+            bind[0].buffer_length = filename_len;
+            bind[0].length = &filename_len;
 
-                 bool file_ok = mysql_stmt_prepare(pre_stmt.get(), order.data(),
-                                                   static_cast<unsigned long>(
-                                                       order.size())) == 0 &&
-                                mysql_stmt_bind_param(pre_stmt.get(), bind) == 0 &&
-                                mysql_stmt_execute(pre_stmt.get()) == 0;
-                if (!file_ok) {
-                     return std::nullopt;
-                }
+            bool file_ok = mysql_stmt_prepare(
+                               pre_stmt.get(), order.data(),
+                               static_cast<unsigned long>(order.size())) == 0 &&
+                           mysql_stmt_bind_param(pre_stmt.get(), bind) == 0 &&
+                           mysql_stmt_execute(pre_stmt.get()) == 0;
+            if (!file_ok) {
+              return std::nullopt;
+            }
                 //插入了几行，看是否存在文件
                 file_ok= mysql_stmt_affected_rows(pre_stmt.get());
                 if (!file_ok) {
@@ -351,7 +350,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                  return false;
                }
                 unsigned long* len=mysql_fetch_lengths(res);//len[n]每一列的长度
-                    if (sha256_hex(std::string(row[0],len[0]))!=auth_hash) {
+                    if (sha256_hex("share_auth:"+std::string(row[0],len[0]))!=auth_hash) {
                          LOG_DEBUG("share not exits");
                          return false;
                     }   
@@ -419,6 +418,9 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                  }
                  //会返回1，0的字符
                   //code是null或者code正确
+                  if (!code_hash_is_null) {
+                         return  "true";
+                  }
                 auto redis_sql=Session::Intense()->GetConn();
                 //key,value
                 std::string share_auth="share_auth:"+sha256_hex(token);
@@ -446,5 +448,5 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                     return "";
                   }
                   freeReplyObject(reply);
-                 return  code_hash_is_null?"true":"false";
+                 return  "false";
  }

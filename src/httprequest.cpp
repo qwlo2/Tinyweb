@@ -71,6 +71,7 @@ ParseResult HttpRequest::parse(Buffer& buff){
         }
 
         if(state_==PARSE_STATE::HEADERS){
+            //返回值是first1, last1,的last1，当为空时时first1
             const char* lineend=std::search(buff.Peek(),buff.BeginWriteConst(),CRLF,CRLF+2);
             
             // headerBytes_=lineLen;
@@ -502,7 +503,7 @@ ParseResult HttpRequest::ParseFileBody(const std::string& line){
        }else {
            //带文件名的
            auto tmp=std::move(Trim_(line.substr(pos+1,pos_-pos)));
-           file_filed.emplace_back(tmp.substr(1,tmp.size()-2));
+           file_filed.emplace_back(tmp.substr(1,tmp.size()-3));
            
            pos=line.find_last_of("=");
            tmp=std::move(Trim_(line.substr(pos+1)));

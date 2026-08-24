@@ -11,7 +11,8 @@ enum class responseResult{
         Auth,//登录
         Upload,//上传
        // UploadError,
-        Download,//下载
+        Download,
+        RangeError,//下载
        // DownloadError,
         Unauthorized,//未登录 / Session 失效401
         NotFound,// 404

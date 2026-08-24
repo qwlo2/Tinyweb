@@ -103,10 +103,10 @@ ThreadPool(ThreadPool&&) = default;
           }
         }
     }
-    static ThreadPool* init_Argon2id(){
-        static  ThreadPool pool(WebServer::threadarnums);
-        return  &pool;
-    }
+    // static ThreadPool* init_Argon2id(){
+    //     static  ThreadPool pool(WebServer::threadarnums);
+    //     return  &pool;
+    // }
     static ThreadPool* init_io(){
         static  ThreadPool pool(WebServer::threadionums);
         return  &pool;

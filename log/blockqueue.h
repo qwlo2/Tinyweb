@@ -76,7 +76,7 @@ template<class T>
  }
 template<class T>
  bool  BlockDeque<T>::empty(){
-     //std::lock_guard<std::mutex> lock(mutex_);
+     std::lock_guard<std::mutex> lock(mutex_);
     return  deq.empty();
  }
 
@@ -146,7 +146,7 @@ template<class T>
 template<class T>
  bool  BlockDeque<T>::pop(T &item, int timeout){
        std::unique_lock<std::mutex> lock(mutex_);
-       while (empty()) {//std::chrono::seconds(timeout）专门用于计时的，wait_for会返回状态有·timeout和no_timeout
+       while (deq.empty()) {//std::chrono::seconds(timeout）专门用于计时的，wait_for会返回状态有·timeout和no_timeout
               if(condConsumer_.wait_for(lock, std::chrono::seconds(timeout))==std::cv_status::timeout){
                              return  false;
               }

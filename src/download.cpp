@@ -1,6 +1,8 @@
 #include "download.h"
 #include "log.h"
 #include "sqlconnpool.h"
+#include <cstddef>
+#include <ctime>
 #include <fcntl.h>
 #include <mysql/field_types.h>
 #include <sys/sendfile.h>
@@ -10,16 +12,21 @@
 
 void Download::parase_filed(std::list<std::string>& list){
     // path=/file/a.txt
-    //已经在para_down_File解决
+    // 已经在para_down_File解决
     filename=list.front();
-    if (list.size()>1) {
-        auto tmp=list.back();
-        //range:byte=start-
-        //range:byte=start-end
-        auto pos=tmp.find_first_of("=");
-       //b=1-
-       offset=std::stoi(tmp.substr(pos+1,tmp.size()-pos-2));
+    if (list.size() > 1) {
+       range_header= list.back();
+       range_valid=true;
     }
+    // if (list.size()>1) {
+    //     auto tmp=list.back();
+    //     //range:byte=start-
+    //     //range:byte=start-end
+    //     auto pos=tmp.find_first_of("=");
+    //    //b=1-
+    //    offset=std::stoi(tmp.substr(pos+1,tmp.size()-pos-2));
+    // }
+
 }
  void Download::init(){
          filename={};
@@ -33,6 +40,12 @@ void Download::parase_filed(std::list<std::string>& list){
            }
            fileFd=-1;
 
+            range_header={};
+            range_start=0;
+            range_end=0;
+            remaining=0;
+            //partial=false;
+            range_valid=false;
  }
   Download::~Download(){
       if (fileFd>0) {
@@ -42,17 +55,17 @@ void Download::parase_filed(std::list<std::string>& list){
 size_t& Download::get_userid(){
    return user_id;
 }
-bool   Download::openfile(){
+DownloadResult   Download::openfile(){
       auto sql=SqlConnPool::Instance()->GetConn();
      if (!sql ) {
-       return false;
+       return DownloadResult::Error;
      }
        std::string query="SELECT file_size,storage_path,content_hash from object "
                          "where object_id=("
                         " SELECT object_id from file where  user_id="+std::to_string(user_id)+" and file_name=?)";
             auto stmt=mysql_stmt_init(sql.get());
         if (!stmt) {
-              return false;
+              return DownloadResult::Error;
         }
         //先init，然后初始化语句，然后绑定参数再执行
         unsigned long file_name_len =
@@ -71,7 +84,7 @@ bool   Download::openfile(){
         mysql_stmt_execute(stmt) == 0;
 
         if (!file_ok) {
-           return false;
+           return DownloadResult::Error;
          }
        // auto rel=mysql_stmt_bind_result(MYSQL_STMT *stmt, MYSQL_BIND *bnd)
      MYSQL_BIND result[3]{};
@@ -104,14 +117,41 @@ bool   Download::openfile(){
     
          mysql_stmt_close(stmt);
          if (!file_ok) {
-           return false;
+           return DownloadResult::Error;
          }
-         file_size =static_cast<size_t>(file_size_db);
+         //适配range
+        file_size =static_cast<size_t>(file_size_db);
+       remaining=file_size;
+        range_end=file_size-1;
+
+        if (range_valid) {
+            auto pos1=range_header.find_first_of("-");
+            auto pos2=range_header.find_first_of("=");
+            if (pos1+1==range_header.size()) {
+                // Range: bytes=100-
+                offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));   
+                //sendfile和range的offset都是下标偏移量，数组index
+                range_end=remaining-1;
+            }else if (pos2+1==pos1) {
+                 // Range: bytes=-500,最后500字节
+                 offset=static_cast<size_t>(file_size_db)-std::stoi(range_header.substr(pos1+1));
+                 range_end=remaining-1;
+            }else {
+               offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));
+               range_end=std::stoi(range_header.substr(pos1+1));
+
+            }
+             if (range_end>=file_size) {
+                return DownloadResult::RangeError;
+             }
+             remaining= range_end-offset+1;
+             range_start=offset;
+        }
         fileFd=::open(file_path.c_str(), O_RDONLY);
         if (fileFd<0 ) {
-           return false;
+           return DownloadResult::Error;
         }
-         return true;
+         return DownloadResult::Finished;
 //  mysql_stmt_prepare()
 //         ↓
 // mysql_stmt_bind_param()   // 绑定输入参数
@@ -128,24 +168,25 @@ bool   Download::openfile(){
     constexpr size_t CHUNK_SIZE = 64 * 1024;
    constexpr size_t MAX_SEND_PER_EVENT = 256 * 1024;
    size_t sent_this_time = 0;
-
+   size_t remain=range_end-offset+1;
       off_t offset_ = static_cast<off_t>(offset);
-       size_t remain=0;
       //限制单次事件处理的发送预算
-      while (offset_<= file_size ) {
-         
-         remain =static_cast<size_t>(file_size - offset_);
-
+      while (remain>0) {
     size_t count = std::min(CHUNK_SIZE, remain);
 
         ssize_t n = ::sendfile(sockfd, fileFd, &offset_, count);
-        //保存offset状态
-        offset=offset_;
         if (n > 0) {
           //当 offset 参数非空时，sendfile() 本身会更新
-         // offset_ += n;
+          if (offset_==0) {
+            //当第一次为0时
+             offset_+=n;
+          }
+           //保存offset状态
+           offset=static_cast<size_t>(offset_);
+
           sent_this_time+=n;
-          if (sent_this_time>MAX_SEND_PER_EVENT) {
+          remain-=n;
+          if (sent_this_time>=MAX_SEND_PER_EVENT) {
               return  DownloadResult::NeedWrite;
           }
           continue;
@@ -175,8 +216,20 @@ bool   Download::openfile(){
 }   
 
 size_t Download::get_content_length(){
-    return  file_size-offset;
+    return  remaining;
 }
+size_t Download::get_file_size(){
+  return  file_size;
+}
+size_t Download::get_range_start(){
+  return  range_start;
+}
+size_t Download::get_range_end(){
+  return  range_end;
+}
+ bool Download::get_range_valid(){
+  return range_valid;
+ }
 std::string Download::get_filename(){
     return filename;
 }
@@ -206,4 +259,5 @@ bool Download::share_init(size_t& file_id){
                 user_id=std::stoi(std::string(row[0],len[0]));
                 filename=std::string(row[1],len[1]);
               mysql_free_result(res);
+              return true;
 }

@@ -193,8 +193,14 @@ ProcessResult HttpConn::process(){
             //粘包，不 readBuff_.RetrieveAll();
             break;
        case responseResult::Download:
-             path=request_.getpath();
+             //path=request_.getpath();
             //粘包，不 readBuff_.RetrieveAll();
+            if (d_file.get_range_valid() ) {
+               code=206;
+            }
+            break;
+        case responseResult::RangeError:
+            code=416;
             break;
        case responseResult::Upload:
            path="/upload_success.html";
@@ -255,8 +261,19 @@ void HttpConn::makeResponse(responseResult  sta){
         //  }
         response_.set_filed("cookie",tokens.value());
     }else if (sta==responseResult::Download) {
-          response_.set_filed("filename",d_file.get_filename());
-          response_.set_filed("Content-Length: ",std::to_string(d_file.get_content_length()));
+      response_.set_filed("filename", d_file.get_filename());
+      response_.set_filed("range_valid", "true");
+      response_.set_filed("Accept-Ranges", "bytes");
+
+      response_.set_filed("Content-Range",
+                          "bytes " + std::to_string(d_file.get_range_start()) +
+                              "-" + std::to_string(d_file.get_range_end()) +
+                              "/" + std::to_string(d_file.get_file_size()));
+      response_.set_filed("Content-Length: ",
+                          std::to_string(d_file.get_content_length()));
+    }else if (sta==responseResult::RangeError ) {
+             response_.set_filed("Content-Range",
+                          "bytes */" + std::to_string(d_file.get_file_size()));
     }
         //普通报文
          response_.MakeResponse(writeBuff_,sta);
@@ -414,11 +431,15 @@ DownloadResult HttpConn::handle_response_write(){
 DownloadResult HttpConn::handle_down(){
     if (d_file.inited) {
           //先打开文件，来判断响应报文的code
-     if (!d_file.openfile()) {
+        auto tmp=std::move(d_file.openfile());
+     if (tmp==DownloadResult::Error) {
         
         makeResponse(responseResult::ServerError);
         //needwrite代表等待缓冲区，其他的直接写
         return  DownloadResult::Error;
+     }else if (tmp==DownloadResult::RangeError) {
+         makeResponse(responseResult::RangeError);
+         return  DownloadResult::RangeError;
      }
      //放在process时，当中途错误，仍然会创建错误的报文
       makeResponse(responseResult::Download);

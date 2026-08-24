@@ -33,7 +33,9 @@ const std::unordered_map<int,std::string> HttpResponse::CODE_STATUS{
      {404,"Not Found"},
      {413,"Payload Too Large"},
      {500 ,"Internal Server Error"},
-     {401 ,"Unauthorized"}
+     {401 ,"Unauthorized"},
+     {206, "Partial Content"},
+   {416, "Range Not Satisfiable"}
 };
 const std::unordered_map<int,std::string> HttpResponse::CODE_PATH{
      {404,"/404.html"},
@@ -41,7 +43,8 @@ const std::unordered_map<int,std::string> HttpResponse::CODE_PATH{
      {403,"/403.html"},
      {400,"/400.html"},
      {413,"/413.html"},
-         {500,"/500.html"}
+     {500,"/500.html"},
+         {416,"/416.html"}
 };
 HttpResponse::HttpResponse()
     : code_(-1), isKeepAlive_(false), file_(nullptr) {
@@ -91,6 +94,17 @@ size_t HttpResponse::getFileLen() const {
 }
 
 void HttpResponse::MakeResponse(Buffer& buff,responseResult sta) {
+    if (sta == responseResult::Download) {
+        file_.reset();
+
+        AddStateLine_(buff, sta);
+        AddHeader_(buff, sta);
+        AddContent_(buff, sta);
+
+        fileds.clear();
+        return;
+    }
+
     StaticFileCache& cache = StaticFileCache::Instance();
 
     if (code_ < 400) {
@@ -155,8 +169,11 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     //SameSite 主要限制：从其他网站发起的请求，浏览器要不要携带你的 Cookie。
        buff.Append("Set-Cookie:session="+fileds["cookie"]+"; Path=/; HttpOnly;  SameSite=Lax\r\n");
     }
-     buff.Append("Content-type:"+GetFileType_()+"\r\n");
-
+    if (sta == responseResult::Download) {
+      buff.Append("Content-Type: application/octet-stream\r\n");
+    } else {
+      buff.Append("Content-Type: " + GetFileType_() + "\r\n");
+    }
     if (sta==responseResult::ShareCreate) {
          //https，由于我没有ssl/tls，因此暂时不管，Path=/file指挥在上传下载时发送cookie，因此设计为所有都会发，只有需要的才处理
          buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/; HttpOnly; SameSite=Lax\r\n");
@@ -170,9 +187,16 @@ void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.si
     //file取决于是否有对应的html文件，因此这里的顺序暂定
     //下载时是先把响应报文发完，在发文件，html的位置暂定
     if (sta==responseResult::Download) {
+        buff.Append( "Accept-Ranges:"+fileds[ "Accept-Ranges"]+"\r\n");
+        if (fileds["range_valid"]=="true") {
+               buff.Append( "Content-Range:"+fileds[ "Content-Range"]+"\r\n");
+        }
         buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
         buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
         return;
+    }
+    if (sta==responseResult::RangeError) {
+          buff.Append( "Content-Range:"+fileds[ "Content-Range"]+"\r\n");
     }
      if(!file_){
         ErrorContent(buff,"File NotFound");

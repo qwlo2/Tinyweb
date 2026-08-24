@@ -268,12 +268,14 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
         fina_path.c_str(),
         RENAME_NOREPLACE//目标路径已经存在时，禁止覆盖。
     );
-     int saveerron=errno;
+
     //新文件,mysql失败则放弃文件
     if (ret == 0&&!add_or_increment_object(fina_path)) {
             unlink(fina_path.c_str());
               return false;
-    }else if (saveerron == EEXIST ) {
+    }
+    const int save_erron = errno;
+    if (save_erron == EEXIST ) {
         // 已有相同哈希文件，删除当前临时文件。
         ::unlink(temp_path.c_str());
         //可能一直保持EEXIST没有改变过

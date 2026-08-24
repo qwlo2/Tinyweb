@@ -116,8 +116,8 @@ WebServer::WebServer(
  WebServer::~WebServer(){
         isClose_=true;
         //close(listenFd_);
-       // ThreadPool::init_Db()->stop();
-        ThreadPool::init_Argon2id()->stop();
+        ThreadPool::init_Db()->stop();
+       // ThreadPool::init_Argon2id()->stop();
         ThreadPool::init_io()->stop();
         ThreadPool::init_File()->stop();
         loop->stop();

@@ -175,14 +175,14 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                 auto ret=std::move(conn->handle_upload_file());
                 switch (ret) {
                     case Upload::NeedRead:
-                                   ThreadPool::init_io()->AddTask([fd,this,conn](){
+                                
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
                                                  }
                                                  ep->ModFd(fd, EPOLLIN | event); 
                                          });
-                                   });
+                                  
                                    break;
                     case Upload::ReadyWrite:
                                        ThreadPool::init_io()->AddTask([fd,this,conn](){
@@ -240,15 +240,13 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                 auto ret=std::move(conn->handle_down());
                 switch (ret) {
                     case DownloadResult::NeedWrite:
-                                      //此时的作用是防止大文件长期占用线程，每256k进行轮换
-                                   ThreadPool::init_io()->AddTask([fd,this,conn](){
+                                      //此时的作用是防止大文件长期占用线程，每256k进行轮换                                 
                                          push_and_do_task([this, fd, conn]() {
                                                if (!isCurrentConnection(fd, conn)) {
                                                        return;
                                                  }
                                                  ep->ModFd(fd, EPOLLOUT | event); 
-                                         });
-                                   });
+                                         });               
                                    break;
                     case DownloadResult::Finished:
                                           //当返回只为0，写完
@@ -268,6 +266,8 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                       handleAuth(fd, conn);
                                             }else if (sta==ProcessResult::Download) {
                                                       hadleDownload(fd, conn);
+                                            } if (sta==ProcessResult::share) {
+                                                      hadleShare(fd, conn);
                                             }  else {                    
                                                     push_and_do_task([this, fd, conn]() {
                                                        if (!isCurrentConnection(fd, conn)) {
@@ -287,6 +287,18 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                       closeconn(fd);
                                              }
                                           });
+                    case DownloadResult::RangeError:
+                                          ThreadPool::init_io()->AddTask([fd,this,conn](){
+                                         conn->makeResponse(responseResult::RangeError);
+                                         push_and_do_task([this, fd, conn]() {
+                                               if (!isCurrentConnection(fd, conn)) {
+                                                       return;
+                                                 }
+                                                 ep->ModFd(fd, EPOLLOUT | event); 
+                                         });
+                                         LOG_DEBUG("download Error")
+                                   });
+                                   break;
                 }
        });
   }

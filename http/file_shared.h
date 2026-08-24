@@ -21,6 +21,7 @@ class File_shared{
      bool versity_doenload(size_t& file_id,std::string& auth_hash);
      //验证是否需要code
      //bool没有区分开code是否为null，或者错误
+     //返回是否需要code
      std::string vsersity_ShareAccess(const std::string& token);
 };
 // 1. GET  /share/<token>
