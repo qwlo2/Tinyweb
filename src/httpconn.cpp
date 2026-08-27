@@ -172,7 +172,9 @@ ProcessResult HttpConn::process(){
         case RouteType::ShareVerify:
                sta=actual_ProcessResult::ShareVerify;
                 return ProcessResult::share;
-
+        case RouteType::ShareLogin:
+               sta=actual_ProcessResult::ShareVerify;
+                return ProcessResult::share;
         case RouteType::ShareDownload:
                sta=actual_ProcessResult::ShareDownload;
                return ProcessResult::share;
@@ -255,7 +257,7 @@ void HttpConn::makeResponse(responseResult  sta){
      //只有403在MakeResponse中用读权限判断给出
      response_.Init(srcDir,path,keepAlive_,code);
      //登录/注册
-    if (sta==responseResult::Auth) {
+    if (sta==responseResult::Auth||sta==responseResult::ShareLogin) {
          auto tokens=std::move( Session::Intense()->gettoken(request_.GetPost("username"))); 
         //  if (!tokens) {
         //此时应该将code转换为503  Service Unavailable重新登录
@@ -392,8 +394,12 @@ bool HttpConn:: versityToken(size_t& user_id){
     //传进去user_id，通过这个获取
     // auto tmp=std::move(request_.Getheader("cookie"));
     // auto pos=tmp.find_first_of("=");
-
-    return  Session::Intense()->versityToken(request_.get_cookie("session").value(),user_id);
+   auto session = request_.get_cookie("session");
+    if (!session){
+         return false;
+    }
+   
+    return  Session::Intense()->versityToken(session.value(),user_id);
 }
 Upload HttpConn ::handle_upload_file(){
      //由于是ET下，因此要一直读到ReadyWrite或者缓冲区完
@@ -510,6 +516,7 @@ bool HttpConn::handle_ShareVerify(){
       return  File_shared::Instance()->versity_share_token(request_.route_token(),request_.GetPost("code"));
 }
 bool HttpConn::handle_ShareLogin(){
+    request_.paraAuth(authuser);
    return   authuser.Auth_ar_and_SqlQuary();
 }
 bool HttpConn::handle_ShareDownload(){

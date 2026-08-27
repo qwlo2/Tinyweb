@@ -132,18 +132,21 @@ DownloadResult   Download::openfile(){
             if (pos1+1==range_header.size()) {
                 // Range: bytes=100-
                 
-                std::from_chars(tmp+pos2,tmp+pos1-pos2-1,offset);
+                std::from_chars(tmp+pos2+1,tmp+pos1-1,offset);
                // offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));   
                 //sendfile和range的offset都是下标偏移量，数组index
                 range_end=remaining-1;
             }else if (pos2+1==pos1) {
                  // Range: bytes=-500,最后500字节
-                 std::from_chars(tmp+pos1+1,tmp+range_header.size()-1,offset);
-                // offset=static_cast<size_t>(file_size_db)-std::stoi(range_header.substr(pos1+1));
+                 size_t off=0;
+                 std::from_chars(tmp+pos1+1,tmp+range_header.size()-1,off);
+                 offset=static_cast<size_t>(file_size_db)-off;
                  range_end=remaining-1;
             }else {
+               // Range: bytes=100-500
              //  offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));
-               std::from_chars(tmp+pos2+1,tmp+pos1-pos2-1,offset);
+               std::from_chars(tmp+pos2+1,tmp+pos2-1,offset);
+                std::from_chars(tmp+pos2+1,tmp+range_header.size()-1,range_end);
                range_end=std::stoi(range_header.substr(pos1+1));
             }
             if (file_size<=offset) {
@@ -152,10 +155,11 @@ DownloadResult   Download::openfile(){
              if (range_end>=file_size) {
                 return DownloadResult::RangeError;
              }
-             if (file_size>range_end) {
+             if (offset>range_end) {
                  return DownloadResult::RangeError;
              }
-             remaining= range_end-offset+1;
+            // remaining= range_end-offset+1;
+             remaining=range_end==0&&range_start==0?0:range_end-offset+1;
              range_start=offset;
         }
         fileFd=::open(file_path.c_str(), O_RDONLY);

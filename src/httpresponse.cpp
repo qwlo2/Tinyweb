@@ -162,7 +162,7 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     else {
        buff.Append("close\r\n");
     }
-    if (sta==responseResult::Auth) {
+    if (sta==responseResult::Auth||sta==responseResult::ShareLogin) {
     //path决定浏览器访问哪些 URL 路径时，应该携带这个 Cookie。
     //HttpOnly代表浏览器可以保存它、发送它，但是网页里的 JavaScript 不能直接读取它。
     //Secure表示这个 Cookie 只通过 HTTPS 请求发送。

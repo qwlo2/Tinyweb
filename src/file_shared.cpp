@@ -266,7 +266,7 @@ bool  File_shared::versity_share_token(const std::string& token,const std::strin
 
                 auto reply = static_cast<redisReply *>(redisCommand(
                     redis_sql.get(),
-                     "SET %b %b EX %s NX", 
+                     "SET %b %b EX %s ", 
                      share_auth.data(),
                     share_auth.size(), 
                     value.data(),
@@ -330,7 +330,8 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
         }
                  //接下来验证文件是否被取消分享
                  auto sql=SqlConnPool::Instance()->GetConn();
-                  const std::string order = "SELECT share_token ,file_id from share where share_id="+std::to_string(share_id);
+                  const std::string order = "SELECT share_token ,file_id from share where share_id="+std::to_string(share_id)+
+                                          " AND (expire_time IS NULL OR expire_time > NOW() );";
                     
               bool sussecc=mysql_query(sql.get(), order.c_str());
               if (sussecc) {
@@ -429,7 +430,7 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
 
                 auto reply = static_cast<redisReply *>(redisCommand(
                     redis_sql.get(),
-                     "SET %b %b EX %s NX", 
+                     "SET %b %b EX %s ", 
                      share_auth.data(),
                     share_auth.size(), 
                     value.data(),

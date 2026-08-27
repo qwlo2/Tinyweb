@@ -229,11 +229,24 @@ std::string HttpRequest::Getheader(const std::string& key) const{
     auto tmp=std::move(header_["cookie"].substr(pos));
     auto pos1=tmp.find_first_of("=");
      auto pos2=tmp.find_first_of(";");
+     if (pos1==std::string::npos||pos2==std::string::npos) {
+       return  std::nullopt;
+    }
      return  tmp.substr(pos1+1,pos2-pos1-1);
     
 }
  std::optional<std::string > HttpRequest::get_cookie(const char*& name){
-     
+       auto pos=header_["cookie"].find(name);
+    if (pos==std::string::npos) {
+       return  std::nullopt;
+    }
+    auto tmp=std::move(header_["cookie"].substr(pos));
+    auto pos1=tmp.find_first_of("=");
+     auto pos2=tmp.find_first_of(";");
+       if (pos1==std::string::npos||pos2==std::string::npos) {
+       return  std::nullopt;
+    }
+     return  tmp.substr(pos1+1,pos2-pos1-1);
  }
 bool HttpRequest::IsKeepAlive() const{
      std::string connection;
@@ -661,6 +674,7 @@ const std::string& HttpRequest::route_token() const {
     //   /share/<token>
     //  /share/<token>/verify
     //   /share/<token>/download
+    //   /share/<token>/login
     if (!path_.starts_with(SHARE_PREFIX)) {
         return;
     }
@@ -736,7 +750,15 @@ const std::string& HttpRequest::route_token() const {
         route_ = RouteType::ShareDownload;
         return;
     }
+     if (action == "login") {
+        if (method_ != HttpMethod::POST) {
+            return;
+        }
 
+        route_token_.assign(token);
+        route_ = RouteType::ShareLogin;
+        return;
+    }
     // 未知 action：
     // /share/token/xxxx
     // 保持 Normal，最后按 404 处理
