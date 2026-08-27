@@ -463,6 +463,14 @@ void HttpRequest::ParsePath_(){
                 authuser.setPasaword(post_["password"]);
                 path_="/error.html";
       }
+    if (route_==RouteType::ShareLogin) {
+              LOG_DEBUG("share Login");
+               bool islogin_= 1;
+                authuser.setIslogin(islogin_);
+                authuser.setUsername(post_["username"]);
+                authuser.setPasaword(post_["password"]);
+                path_="/error.html";
+    }
  }
 void HttpRequest::para_up_File(UploadFile& filer){
   if(route_==RouteType::Upload){

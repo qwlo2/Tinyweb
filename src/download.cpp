@@ -132,21 +132,21 @@ DownloadResult   Download::openfile(){
             if (pos1+1==range_header.size()) {
                 // Range: bytes=100-
                 
-                std::from_chars(tmp+pos2+1,tmp+pos1-1,offset);
+                std::from_chars(tmp+pos2+1,tmp+pos1,offset);
                // offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));   
                 //sendfile和range的offset都是下标偏移量，数组index
                 range_end=remaining-1;
             }else if (pos2+1==pos1) {
                  // Range: bytes=-500,最后500字节
                  size_t off=0;
-                 std::from_chars(tmp+pos1+1,tmp+range_header.size()-1,off);
+                 std::from_chars(tmp+pos1+1,tmp+range_header.size(),off);
                  offset=static_cast<size_t>(file_size_db)-off;
                  range_end=remaining-1;
             }else {
                // Range: bytes=100-500
              //  offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));
-               std::from_chars(tmp+pos2+1,tmp+pos2-1,offset);
-                std::from_chars(tmp+pos2+1,tmp+range_header.size()-1,range_end);
+               std::from_chars(tmp+pos1+1,tmp+pos2,offset);
+                std::from_chars(tmp+pos2+1,tmp+range_header.size(),range_end);
                range_end=std::stoi(range_header.substr(pos1+1));
             }
             if (file_size<=offset) {
@@ -180,6 +180,9 @@ DownloadResult   Download::openfile(){
 // mysql_stmt_fetch()        // 一行一行取
 }
   DownloadResult Download::handle_down(int sockfd){
+    if (file_size==0) {
+      return  DownloadResult::Finished;
+    }
     constexpr size_t CHUNK_SIZE = 64 * 1024;
    constexpr size_t MAX_SEND_PER_EVENT = 256 * 1024;
    size_t sent_this_time = 0;

@@ -144,7 +144,11 @@ ProcessResult HttpConn::process(){
             file.inited = true;
             request_.para_up_File(file);
             // 文件重传，验证失败
-            if (!versityToken(file.get_user_id()) || !file.init_fileds()) {
+             if (!versityToken(file.get_user_id()) ) {
+              ret = responseResult::Unauthorized;
+              break;
+            }
+             if ( !file.init_fileds()) {
               ret = responseResult::ServerError;
               break;
             }
@@ -153,10 +157,15 @@ ProcessResult HttpConn::process(){
           return   ProcessResult::Upload;
     
         case RouteType::Download:
-          if (!versityToken(d_file.get_userid())) {
-            ret = responseResult::ServerError;
-            break;
-          }
+          // 文件重传，验证失败
+             if (!versityToken(file.get_user_id()) ) {
+              ret = responseResult::Unauthorized;
+              break;
+            }
+             if ( !file.init_fileds()) {
+              ret = responseResult::ServerError;
+              break;
+            }
           request_.para_down_File(d_file);
           d_file.inited = true;
           sta =actual_ProcessResult::Download;
@@ -173,7 +182,7 @@ ProcessResult HttpConn::process(){
                sta=actual_ProcessResult::ShareVerify;
                 return ProcessResult::share;
         case RouteType::ShareLogin:
-               sta=actual_ProcessResult::ShareVerify;
+               sta=actual_ProcessResult::ShareLogin;
                 return ProcessResult::share;
         case RouteType::ShareDownload:
                sta=actual_ProcessResult::ShareDownload;
