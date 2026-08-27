@@ -7,6 +7,7 @@
 #include <cstring>
 #include <mysql/field_types.h>
 #include <mysql/mysql.h>
+#include <optional>
 #include <string>
 #include <utility>
 #include "download.h"
@@ -220,6 +221,20 @@ std::string HttpRequest::Getheader(const std::string& key) const{
     }
     return "";
 }
+ std::optional<std::string > HttpRequest::get_cookie(const std::string& name){
+    auto pos=header_["cookie"].find(name);
+    if (pos==std::string::npos) {
+       return  std::nullopt;
+    }
+    auto tmp=std::move(header_["cookie"].substr(pos));
+    auto pos1=tmp.find_first_of("=");
+     auto pos2=tmp.find_first_of(";");
+     return  tmp.substr(pos1+1,pos2-pos1-1);
+    
+}
+ std::optional<std::string > HttpRequest::get_cookie(const char*& name){
+     
+ }
 bool HttpRequest::IsKeepAlive() const{
      std::string connection;
 
@@ -335,9 +350,9 @@ ParseResult HttpRequest::ParseHeader_(const std::string& line){
            value=Trim_(line.substr(pos+1));
            lowerKey=ToLower_(key);
     }
-    if (lowerKey=="cookie") {
-      value= value.substr(value.find_first_of("=")+1);
-    }
+    // if (lowerKey=="cookie") {
+    //   value= value.substr(value.find_first_of("=")+1);
+    // }
     header_[lowerKey]=value;
     return ParseResult::Complete;
 }

@@ -219,6 +219,9 @@ ProcessResult HttpConn::process(){
         case responseResult::ShareVerify:
            path="/share_access.html";
             break;
+        case responseResult::ShareLogin:
+           path="/share_login.html";
+            break;
         case responseResult::ShareDownload:
             break;
        case responseResult::PayloadTooLarge:
@@ -301,7 +304,13 @@ ssize_t HttpConn::read(int* saveErrno){
     }
     ssize_t len=0;
     ssize_t total=0;
+    //在纯ET下，维持64kb缓冲区，当socket——buffer>64kb时重新注册会阻塞
+    //而在EPOLLSHOT下回强制状态先为未读/可写，因此会再次通知不会阻塞
     do{
+         if (readBuff_.WritableBytes() == 0) {
+           // 本轮缓冲区已满，返回上层解析和消费
+           break;
+        }
         len=readBuff_.ReadFd(fd_,saveErrno);
         if(len>0){
             total+=len;
@@ -384,7 +393,7 @@ bool HttpConn:: versityToken(size_t& user_id){
     // auto tmp=std::move(request_.Getheader("cookie"));
     // auto pos=tmp.find_first_of("=");
 
-    return  Session::Intense()->versityToken(request_.Getheader("cookie"),user_id);
+    return  Session::Intense()->versityToken(request_.get_cookie("session").value(),user_id);
 }
 Upload HttpConn ::handle_upload_file(){
      //由于是ET下，因此要一直读到ReadyWrite或者缓冲区完
@@ -441,6 +450,8 @@ DownloadResult HttpConn::handle_down(){
         return  DownloadResult::Error;
      }else if (tmp==DownloadResult::RangeError) {
          makeResponse(responseResult::RangeError);
+         sta=actual_ProcessResult::responseOnly;
+         //必须切换，不然在onwrite中还是会调用doanload
          return  DownloadResult::RangeError;
      }
      //放在process时，当中途错误，仍然会创建错误的报文
@@ -468,6 +479,8 @@ bool HttpConn::handle_share(){
                     return handle_ShareVerify();
        case actual_ProcessResult::ShareDownload:
                     return handle_ShareDownload();
+        case actual_ProcessResult::ShareLogin:
+                    return handle_ShareLogin();
     }            
     return false;
 }
@@ -495,6 +508,9 @@ bool HttpConn::handle_ShareAccess(){
 }
 bool HttpConn::handle_ShareVerify(){
       return  File_shared::Instance()->versity_share_token(request_.route_token(),request_.GetPost("code"));
+}
+bool HttpConn::handle_ShareLogin(){
+   return   authuser.Auth_ar_and_SqlQuary();
 }
 bool HttpConn::handle_ShareDownload(){
     auto auth_hash="share_auth:"+sha256_hex(std::move(request_.route_token()));
@@ -526,6 +542,8 @@ responseResult HttpConn::status_route(actual_ProcessResult& sta){
                  return responseResult::ShareVerify;
           case actual_ProcessResult::ShareDownload:
                 return responseResult::ShareDownload;
+           case actual_ProcessResult::ShareLogin:
+                return responseResult::ShareLogin;
        }
 }
  actual_ProcessResult HttpConn::get_sta(){

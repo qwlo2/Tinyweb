@@ -20,7 +20,8 @@ enum class responseResult{
          ShareCreate,//分享
          ShareAccess,
         ShareVerify,//验证提取码
-        ShareDownload
+        ShareDownload,
+        ShareLogin
 };
 class HttpResponse {
 public:

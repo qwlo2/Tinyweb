@@ -273,7 +273,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
     if (ret == 0&&!add_or_increment_object(fina_path)) {
             unlink(fina_path.c_str());
               return false;
-    }else if (save_erron == EEXIST ) {
+    }else if (ret == -1 && save_erron == EEXIST) {
         // 已有相同哈希文件，删除当前临时文件。
         ::unlink(temp_path.c_str());
         //可能一直保持EEXIST没有改变过

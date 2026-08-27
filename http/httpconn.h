@@ -27,6 +27,8 @@ enum class actual_ProcessResult{
     ShareVerify,//验证提取码
     ShareDownload,
      ShareAccess, // GET /share/<token>
+     ShareLogin,//这样就可以避免一个client获取
+     responseOnly
 };
 class HttpConn {
 public:
@@ -71,6 +73,7 @@ public:
     bool handle_ShareCreate();
     bool handle_ShareVerify();
     bool handle_ShareDownload();
+    bool handle_ShareLogin();
     responseResult status_route(actual_ProcessResult& sta);
 
     void makeResponse(responseResult  sta);

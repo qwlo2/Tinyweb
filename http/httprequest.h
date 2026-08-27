@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <list>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -60,7 +61,10 @@ public:
     std::string GetPost(const char* key) const;
      std::string Getheader(const std::string& key) const;
     std::string Getheader(const char* key) const;
-
+    
+    std::optional<std::string >  get_cookie(const std::string& name);
+     std::optional<std::string > get_cookie(const char*& name);
+    
     void paraAuth(Auth& auther);
     void para_up_File(UploadFile& filer);
     void para_down_File(Download& filer);

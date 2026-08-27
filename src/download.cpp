@@ -1,6 +1,7 @@
 #include "download.h"
 #include "log.h"
 #include "sqlconnpool.h"
+#include <charconv>
 #include <cstddef>
 #include <ctime>
 #include <fcntl.h>
@@ -122,27 +123,37 @@ DownloadResult   Download::openfile(){
          //适配range
         file_size =static_cast<size_t>(file_size_db);
        remaining=file_size;
-        range_end=file_size-1;
+        range_end = file_size == 0 ? 0 : file_size - 1;
 
         if (range_valid) {
             auto pos1=range_header.find_first_of("-");
             auto pos2=range_header.find_first_of("=");
+            auto tmp=range_header.data();
             if (pos1+1==range_header.size()) {
                 // Range: bytes=100-
-                offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));   
+                
+                std::from_chars(tmp+pos2,tmp+pos1-pos2-1,offset);
+               // offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));   
                 //sendfile和range的offset都是下标偏移量，数组index
                 range_end=remaining-1;
             }else if (pos2+1==pos1) {
                  // Range: bytes=-500,最后500字节
-                 offset=static_cast<size_t>(file_size_db)-std::stoi(range_header.substr(pos1+1));
+                 std::from_chars(tmp+pos1+1,tmp+range_header.size()-1,offset);
+                // offset=static_cast<size_t>(file_size_db)-std::stoi(range_header.substr(pos1+1));
                  range_end=remaining-1;
             }else {
-               offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));
+             //  offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));
+               std::from_chars(tmp+pos2+1,tmp+pos1-pos2-1,offset);
                range_end=std::stoi(range_header.substr(pos1+1));
-
             }
+            if (file_size<=offset) {
+                      return DownloadResult::RangeError;
+                }
              if (range_end>=file_size) {
                 return DownloadResult::RangeError;
+             }
+             if (file_size>range_end) {
+                 return DownloadResult::RangeError;
              }
              remaining= range_end-offset+1;
              range_start=offset;
