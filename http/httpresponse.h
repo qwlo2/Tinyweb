@@ -39,6 +39,8 @@ public:
 
     void set_filed(std::string name,std::string filed);
     void set_filed(char* name,char* filed);
+    std::string get_filed(const std::string& name);
+    std::string get_filed(const char*& name);
 private:
     void AddStateLine_(Buffer &buff,responseResult& sta);
     void AddHeader_(Buffer &buff,responseResult& sta);

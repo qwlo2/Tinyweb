@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My 云盘 - 下载分享文件</title>
+    <link rel="stylesheet" href="/css/font-awesome.min.css">
+    <style>
+        :root {
+            color-scheme: light;
+            --share-blue: #2f6fed;
+            --share-blue-dark: #245bd0;
+            --share-text: #17233d;
+            --share-muted: #69758a;
+            --share-bg: #f3f6fb;
+            --share-success: #138a72;
+        }
+
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        html, body { min-height: 100%; }
+
+        body {
+            margin: 0;
+            background: var(--share-bg);
+            color: var(--share-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .share-header {
+            height: 68px;
+            background: #fff;
+            border-bottom: 1px solid rgba(23, 35, 61, 0.06);
+        }
+
+        .share-header__inner {
+            width: min(100% - 40px, 1080px);
+            height: 100%;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .share-brand {
+            color: var(--share-text);
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-decoration: none;
+        }
+
+        .share-home-link {
+            color: var(--share-muted);
+            font-size: 14px;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .share-home-link:hover,
+        .share-home-link:focus-visible { color: var(--share-blue); }
+
+        .share-shell {
+            width: min(100% - 40px, 1080px);
+            margin: 0 auto;
+            padding: 64px 0;
+        }
+
+        .share-panel {
+            width: min(100%, 680px);
+            margin: 0 auto;
+            padding: 56px 64px 46px;
+            background: #fff;
+            border: 1px solid rgba(35, 55, 89, 0.07);
+            border-radius: 18px;
+            box-shadow: 0 18px 48px rgba(38, 58, 96, 0.09);
+            text-align: center;
+        }
+
+        .share-success-badge {
+            margin-bottom: 28px;
+            padding: 8px 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            border-radius: 999px;
+            background: #e8f7f3;
+            color: var(--share-success);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .share-file-icon {
+            width: 78px;
+            height: 78px;
+            margin: 0 auto 26px;
+            display: grid;
+            place-items: center;
+            border-radius: 20px;
+            background: #e6efff;
+            color: var(--share-blue);
+            font-size: 36px;
+            box-shadow: inset 0 0 0 1px rgba(47, 111, 237, 0.08);
+        }
+
+        .share-panel h1 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.35;
+        }
+
+        .share-description {
+            margin: 12px 0 32px;
+            color: var(--share-muted);
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .share-primary-button {
+            width: min(100%, 360px);
+            height: 50px;
+            margin: 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            border-radius: 10px;
+            background: var(--share-blue);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            box-shadow: 0 8px 20px rgba(47, 111, 237, 0.22);
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .share-primary-button:hover,
+        .share-primary-button:focus-visible { background: var(--share-blue-dark); }
+        .share-primary-button:active { transform: translateY(1px); }
+
+        .share-back-link {
+            margin-top: 22px;
+            display: inline-block;
+            color: var(--share-muted);
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .share-back-link:hover,
+        .share-back-link:focus-visible { color: var(--share-blue); }
+
+        .share-hint {
+            margin: 30px 0 0;
+            padding-top: 22px;
+            border-top: 1px solid #edf0f5;
+            color: var(--share-muted);
+            font-size: 13px;
+        }
+
+        .share-status {
+            margin: 0;
+            padding: 14px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: left;
+        }
+
+        .share-status--error {
+            background: #fff2f2;
+            color: #b42318;
+            border: 1px solid #ffd6d2;
+        }
+
+        @media (max-width: 620px) {
+            .share-header { height: 60px; }
+            .share-header__inner,
+            .share-shell { width: min(100% - 28px, 1080px); }
+            .share-shell { padding: 28px 0; }
+
+            .share-panel {
+                padding: 40px 26px 34px;
+                border-radius: 15px;
+            }
+
+            .share-success-badge { margin-bottom: 24px; }
+
+            .share-file-icon {
+                width: 66px;
+                height: 66px;
+                margin-bottom: 22px;
+                border-radius: 17px;
+                font-size: 30px;
+            }
+
+            .share-panel h1 { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="share-header">
+        <div class="share-header__inner">
+            <a class="share-brand" href="/">My 云盘</a>
+            <a class="share-home-link" href="/">返回首页</a>
+        </div>
+    </header>
+
+    <main class="share-shell">
+        <section class="share-panel" aria-labelledby="share-download-title">
+            <p id="share-page-status" class="share-status share-status--error" role="alert" hidden>分享链接无效</p>
+
+            <div id="share-download-content" hidden>
+                <div class="share-success-badge">
+                    <i class="fa fa-check-circle" aria-hidden="true"></i>
+                    <span>登录成功</span>
+                </div>
+                <div class="share-file-icon" aria-hidden="true">
+                    <i class="fa fa-file-o"></i>
+                </div>
+                <h1 id="share-download-title">分享文件</h1>
+                <p class="share-description">身份验证已完成，可以下载文件</p>
+                <a id="share-download-link" class="share-primary-button">
+                    <i class="fa fa-download" aria-hidden="true"></i>
+                    <span>下载文件</span>
+                </a>
+                <div>
+                    <a id="share-back-link" class="share-back-link">返回分享页面</a>
+                </div>
+                <p class="share-hint">下载过程中请勿关闭当前页面</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        (() => {
+            "use strict";
+
+            const parts = window.location.pathname.split('/').filter(Boolean);
+            const tokenPattern = /^[A-Za-z0-9_-]{8,64}$/;
+            const token = parts.length === 3 && parts[0] === "share" &&
+                parts[2] === "login" && parts[1] && tokenPattern.test(parts[1]) ? parts[1] : null;
+            const content = document.getElementById("share-download-content");
+            const downloadLink = document.getElementById("share-download-link");
+            const backLink = document.getElementById("share-back-link");
+            const status = document.getElementById("share-page-status");
+
+            if (!token) {
+                downloadLink.removeAttribute("href");
+                backLink.removeAttribute("href");
+                status.hidden = false;
+                return;
+            }
+
+            const encodedToken = encodeURIComponent(token);
+            downloadLink.href = `/share/${encodedToken}/download`;
+            backLink.href = `/share/${encodedToken}`;
+            content.hidden = false;
+        })();
+    </script>
+</body>
+</html>

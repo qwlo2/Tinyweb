@@ -78,6 +78,18 @@ void HttpResponse::set_filed(std::string name,std::string filed){
 void HttpResponse::set_filed(char* name,char* filed){
     fileds.emplace(name,filed);
 }
+ std::string HttpResponse::get_filed(const std::string& name){
+    if (fileds.contains(name)) {
+     return fileds[name];
+    }
+    return "";
+ }
+std::string HttpResponse::get_filed(const char*& name){
+    if (fileds.contains(name)) {
+     return fileds[name];
+    }
+    return "";
+}
 void HttpResponse::UnmapFile() {
     file_.reset();
 }

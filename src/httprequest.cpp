@@ -229,9 +229,16 @@ std::string HttpRequest::Getheader(const std::string& key) const{
     auto tmp=std::move(header_["cookie"].substr(pos));
     auto pos1=tmp.find_first_of("=");
      auto pos2=tmp.find_first_of(";");
-     if (pos1==std::string::npos||pos2==std::string::npos) {
+     if (pos1==std::string::npos) {
        return  std::nullopt;
     }
+    //此时到最后一个，对于这个
+    if (pos2==std::string::npos) {
+       pos2 = tmp.size();
+       if (pos2==pos1+1) {
+          return std::nullopt;
+       }
+    } 
      return  tmp.substr(pos1+1,pos2-pos1-1);
     
 }

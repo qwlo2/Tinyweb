@@ -145,8 +145,8 @@ DownloadResult   Download::openfile(){
             }else {
                // Range: bytes=100-500
              //  offset=std::stoi(range_header.substr(pos2+1,pos1-pos2-1));
-               std::from_chars(tmp+pos1+1,tmp+pos2,offset);
-                std::from_chars(tmp+pos2+1,tmp+range_header.size(),range_end);
+               std::from_chars(tmp+pos2+1,tmp+pos1,offset);
+                std::from_chars(tmp+pos1+1,tmp+range_header.size(),range_end);
                range_end=std::stoi(range_header.substr(pos1+1));
             }
             if (file_size<=offset) {

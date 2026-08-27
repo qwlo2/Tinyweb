@@ -158,7 +158,7 @@ ProcessResult HttpConn::process(){
     
         case RouteType::Download:
           // 文件重传，验证失败
-             if (!versityToken(file.get_user_id()) ) {
+             if (!versityToken(d_file.get_userid()) ) {
               ret = responseResult::Unauthorized;
               break;
             }
@@ -225,7 +225,12 @@ ProcessResult HttpConn::process(){
             path="/welcome.html";
             break;
         case responseResult::ShareAccess:
-            path="/share_access.html";
+        if (response_.get_filed("has_code")=="true") {
+                path="/share_access_code.html";
+        }else {
+         path="/share_access.html";
+        }
+        
             break;
         case responseResult::ShareVerify:
            path="/share_access.html";

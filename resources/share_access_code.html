@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>My 云盘 - 分享文件</title>
+    <title>My 云盘 - 验证分享</title>
     <link rel="stylesheet" href="/css/font-awesome.min.css">
     <style>
         :root {
@@ -12,7 +12,6 @@
             --share-blue-dark: #245bd0;
             --share-text: #17233d;
             --share-muted: #69758a;
-            --share-line: #e7ecf4;
             --share-bg: #f3f6fb;
         }
 
@@ -69,32 +68,20 @@
         }
 
         .share-panel {
-            min-height: 480px;
-            display: grid;
-            grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
-            overflow: hidden;
+            width: min(100%, 620px);
+            margin: 0 auto;
+            padding: 58px 64px 48px;
             background: #fff;
             border: 1px solid rgba(35, 55, 89, 0.07);
             border-radius: 18px;
             box-shadow: 0 18px 48px rgba(38, 58, 96, 0.09);
-        }
-
-        .share-file-area,
-        .share-action-area { padding: 62px 58px; }
-
-        .share-file-area {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-            background: linear-gradient(145deg, #f8fbff 0%, #f2f6fd 100%);
-            border-right: 1px solid var(--share-line);
+            text-align: center;
         }
 
         .share-file-icon {
             width: 78px;
             height: 78px;
-            margin-bottom: 28px;
+            margin: 0 auto 26px;
             display: grid;
             place-items: center;
             border-radius: 20px;
@@ -104,51 +91,20 @@
             box-shadow: inset 0 0 0 1px rgba(47, 111, 237, 0.08);
         }
 
-        .share-file-area h1,
-        .share-action-area h2 { margin: 0; line-height: 1.3; }
-        .share-file-area h1 { font-size: 30px; }
-
-        .share-ready {
-            margin: 20px 0 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--share-blue-dark);
-            font-size: 14px;
-            font-weight: 600;
+        .share-panel h1 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.35;
         }
 
-        .share-ready::before {
-            width: 8px;
-            height: 8px;
-            content: "";
-            border-radius: 50%;
-            background: var(--share-blue);
-            box-shadow: 0 0 0 4px rgba(47, 111, 237, 0.12);
+        .share-description {
+            margin: 12px 0 32px;
+            color: var(--share-muted);
+            font-size: 15px;
+            line-height: 1.7;
         }
 
-        .share-description,
-        .share-source,
-        .share-action-copy,
-        .share-action-hint { color: var(--share-muted); line-height: 1.75; }
-        .share-description { margin: 0; font-size: 16px; }
-
-        .share-source {
-            margin: 34px 0 0;
-            padding-top: 24px;
-            border-top: 1px solid rgba(105, 117, 138, 0.16);
-            font-size: 13px;
-        }
-
-        .share-action-area {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .share-action-area h2 { font-size: 24px; }
-        .share-action-copy { margin: 10px 0 30px; font-size: 14px; }
-        .share-form-field { margin-bottom: 20px; }
+        .share-form-field { text-align: left; }
 
         .share-form-field label {
             margin-bottom: 9px;
@@ -159,7 +115,7 @@
 
         .share-input {
             width: 100%;
-            height: 48px;
+            height: 50px;
             padding: 0 15px;
             border: 1px solid #dbe2ee;
             border-radius: 10px;
@@ -179,8 +135,8 @@
 
         .share-primary-button {
             width: 100%;
-            height: 48px;
-            margin-top: 4px;
+            height: 50px;
+            margin-top: 18px;
             border: 0;
             border-radius: 10px;
             background: var(--share-blue);
@@ -197,10 +153,10 @@
         .share-primary-button:focus-visible { background: var(--share-blue-dark); }
         .share-primary-button:active { transform: translateY(1px); }
 
-        .share-action-hint {
-            margin: 18px 0 0;
-            text-align: center;
-            font-size: 12px;
+        .share-hint {
+            margin: 22px 0 0;
+            color: var(--share-muted);
+            font-size: 13px;
         }
 
         .share-status {
@@ -209,6 +165,7 @@
             border-radius: 10px;
             font-size: 14px;
             line-height: 1.6;
+            text-align: left;
         }
 
         .share-status--error {
@@ -217,23 +174,15 @@
             border: 1px solid #ffd6d2;
         }
 
-        @media (max-width: 760px) {
+        @media (max-width: 620px) {
             .share-header { height: 60px; }
             .share-header__inner,
             .share-shell { width: min(100% - 28px, 1080px); }
             .share-shell { padding: 28px 0; }
 
             .share-panel {
-                min-height: 0;
-                grid-template-columns: 1fr;
-            }
-
-            .share-file-area,
-            .share-action-area { padding: 38px 28px; }
-
-            .share-file-area {
-                border-right: 0;
-                border-bottom: 1px solid var(--share-line);
+                padding: 40px 26px 34px;
+                border-radius: 15px;
             }
 
             .share-file-icon {
@@ -244,8 +193,7 @@
                 font-size: 30px;
             }
 
-            .share-file-area h1 { font-size: 25px; }
-            .share-source { margin-top: 26px; padding-top: 18px; }
+            .share-panel h1 { font-size: 24px; }
         }
     </style>
 </head>
@@ -258,37 +206,24 @@
     </header>
 
     <main class="share-shell">
-        <section class="share-panel" aria-label="分享文件访问">
-            <div class="share-file-area">
-                <div class="share-file-icon" aria-hidden="true">
-                    <i class="fa fa-file-o"></i>
+        <section class="share-panel" aria-labelledby="share-code-title">
+            <div class="share-file-icon" aria-hidden="true">
+                <i class="fa fa-file-o"></i>
+            </div>
+            <h1 id="share-code-title">请输入提取码</h1>
+            <p class="share-description">输入分享者提供的提取码后继续访问文件</p>
+            <p id="share-page-status" class="share-status share-status--error" role="alert" hidden>分享链接无效</p>
+
+            <form id="share-code-form" method="post" hidden>
+                <div class="share-form-field">
+                    <label for="share-code">提取码</label>
+                    <input id="share-code" class="share-input" name="code"
+                        autocomplete="one-time-code" placeholder="请输入提取码"
+                        spellcheck="false" required>
                 </div>
-                <h1>分享文件</h1>
-                <p class="share-ready">文件已准备好</p>
-                <p class="share-description">登录后即可下载该分享文件</p>
-                <p class="share-source">来自 My 云盘的文件分享</p>
-            </div>
-
-            <div class="share-action-area">
-                <h2>登录后下载</h2>
-                <p class="share-action-copy">请使用你的账户完成身份验证</p>
-                <p id="share-page-status" class="share-status share-status--error" role="alert" hidden>分享链接无效</p>
-
-                <form id="share-login-form" method="post" hidden>
-                    <div class="share-form-field">
-                        <label for="share-username">用户名</label>
-                        <input id="share-username" class="share-input" name="username"
-                            autocomplete="username" placeholder="请输入用户名" required>
-                    </div>
-                    <div class="share-form-field">
-                        <label for="share-password">密码</label>
-                        <input id="share-password" class="share-input" name="password" type="password"
-                            autocomplete="current-password" placeholder="请输入密码" required>
-                    </div>
-                    <button class="share-primary-button" type="submit">登录并继续</button>
-                    <p class="share-action-hint">登录成功后将进入文件下载页面</p>
-                </form>
-            </div>
+                <button class="share-primary-button" type="submit">提取文件</button>
+                <p class="share-hint">提取码由分享者提供</p>
+            </form>
         </section>
     </main>
 
@@ -298,11 +233,9 @@
 
             const parts = window.location.pathname.split('/').filter(Boolean);
             const tokenPattern = /^[A-Za-z0-9_-]{8,64}$/;
-            const isSupportedPath = parts.length === 2 ||
-                (parts.length === 3 && parts[2] === "verify");
-            const token = parts[0] === "share" && parts[1] &&
-                isSupportedPath && tokenPattern.test(parts[1]) ? parts[1] : null;
-            const form = document.getElementById("share-login-form");
+            const token = parts.length === 2 && parts[0] === "share" && parts[1] &&
+                tokenPattern.test(parts[1]) ? parts[1] : null;
+            const form = document.getElementById("share-code-form");
             const status = document.getElementById("share-page-status");
 
             if (!token) {
@@ -313,7 +246,7 @@
                 return;
             }
 
-            form.action = `/share/${encodeURIComponent(token)}/login`;
+            form.action = `/share/${encodeURIComponent(token)}/verify`;
             form.hidden = false;
         })();
     </script>
