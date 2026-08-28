@@ -141,13 +141,14 @@ ProcessResult HttpConn::process(){
         case RouteType::Upload:
           // sta= ProcessResult::;
           if (!file.inited) {
-            file.inited = true;
-            request_.para_up_File(file);
+
             // 文件重传，验证失败
              if (!versityToken(file.get_user_id()) ) {
               ret = responseResult::Unauthorized;
               break;
             }
+              file.inited = true;
+            request_.para_up_File(file);
              if ( !file.init_fileds()) {
               ret = responseResult::ServerError;
               break;
@@ -162,12 +163,9 @@ ProcessResult HttpConn::process(){
               ret = responseResult::Unauthorized;
               break;
             }
-             if ( !file.init_fileds()) {
-              ret = responseResult::ServerError;
-              break;
-            }
+              d_file.inited = true;
           request_.para_down_File(d_file);
-          d_file.inited = true;
+          
           sta =actual_ProcessResult::Download;
            return  ProcessResult::Download;
 
@@ -184,10 +182,16 @@ ProcessResult HttpConn::process(){
         case RouteType::ShareLogin:
                sta=actual_ProcessResult::ShareLogin;
                 return ProcessResult::share;
-        case RouteType::ShareDownload:
+        case RouteType::ShareDownload:{
+           size_t user_id=0;
+               //这里的uer-id是冗余的，在之后下载需要的userid是file所属的，不是账号本身的
+               if (!versityToken(user_id) ) {
+                  ret = responseResult::Unauthorized;
+                  break;
+               }
                sta=actual_ProcessResult::ShareDownload;
                return ProcessResult::share;
-        
+        }
         case RouteType::Normal:
            // 普通静态资源,sta并未在init中重置
             sta={};
@@ -515,7 +519,10 @@ bool HttpConn::handle_ShareCreate(){
            return false;
         }
         response_.set_filed("share_token", res.value().first);
-        response_.set_filed("code", res.value().second);
+        response_.set_filed(
+        "code",
+        res->second == "NULL" ? "" : res->second
+    );
         return true;
 }
 bool HttpConn::handle_ShareAccess(){

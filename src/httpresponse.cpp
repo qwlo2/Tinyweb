@@ -188,11 +188,13 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     }
     if (sta==responseResult::ShareCreate) {
          //https，由于我没有ssl/tls，因此暂时不管，Path=/file指挥在上传下载时发送cookie，因此设计为所有都会发，只有需要的才处理
-         buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/; HttpOnly; SameSite=Lax\r\n");
-        // buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/file; HttpOnly; Secure; SameSite=Lax\r\n");
-         buff.Append("Code:"+fileds["code"]+"\r\n");
-    } 
-    
+        // buff.Append("Set-Cookie:share_token="+fileds["share_token"]+"; Path=/; HttpOnly; SameSite=Lax\r\n");
+         buff.Append("Share-Token: " + fileds["share_token"] + "\r\n");
+
+         if (!fileds["code"].empty()) {
+           buff.Append("Code: " + fileds["code"] + "\r\n");
+         }
+        }
 }
 void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.size
     //这里还写入Content，因此要返回
