@@ -140,6 +140,7 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
                   str.push_back(TABLE[(value >> 4) & 0x3F]);
                 }
                 code_hah.swap(str);
+                delete [] tmp;
            }
            std::string expire_time="NULL";
            //这里可能存在sql注入的分享，因此暂时不支持自定义时间

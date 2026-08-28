@@ -206,7 +206,8 @@ void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.si
                buff.Append( "Content-Range:"+fileds[ "Content-Range"]+"\r\n");
         }
         buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
-        buff.Append("Content-Disposition: attachment; filename="+fileds["filename"]+"\r\n\r\n");
+        buff.Append("Content-Disposition: attachment; filename=\"" +
+                    fileds["filename"] + "\"\r\n\r\n");
         return;
     }
     if (sta==responseResult::RangeError) {

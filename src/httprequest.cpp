@@ -493,7 +493,20 @@ void HttpRequest::para_down_File(Download& filer){
        if(route_==RouteType::Download){
   //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
              // LOG_DEBUG("upload file:%s",file_filed.);
-              file_filed.emplace_back(path_.substr(6));
+            //  file_filed.emplace_back(path_.substr(6));
+            std::string filename = path_.substr(6);
+        //url的语法对一些会进行转换，会对业务数据进行转换，path不会
+        for (size_t i = 0; i + 2 < filename.size(); ++i) {
+            if (filename[i] == '%') {
+                filename[i] = static_cast<char>(
+                    ConverHex(filename[i + 1]) * 16 +
+                    ConverHex(filename[i + 2])
+                );
+                filename.erase(i + 1, 2);
+            }
+        }
+
+        file_filed.emplace_back(std::move(filename));
            if (header_.contains("range")) {
                  file_filed.emplace_back(header_["range"]);
            }

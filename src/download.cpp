@@ -165,8 +165,9 @@ DownloadResult   Download::openfile(){
              if (offset>range_end) {
                  return DownloadResult::RangeError;
              }
-            // remaining= range_end-offset+1;
-             remaining=range_end==0&&range_start==0?0:range_end-offset+1;
+             remaining= range_end-offset+1;
+             //0-0就是发生第一个字节
+            // remaining=range_end==0&&range_start==0?0:range_end-offset+1;
              range_start=offset;
         }
         fileFd=::open(file_path.c_str(), O_RDONLY);

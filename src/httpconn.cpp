@@ -165,7 +165,6 @@ ProcessResult HttpConn::process(){
             }
               d_file.inited = true;
           request_.para_down_File(d_file);
-          
           sta =actual_ProcessResult::Download;
            return  ProcessResult::Download;
 

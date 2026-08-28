@@ -279,6 +279,12 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                      }
                                                  });
                                            return ;
+                                      }else {
+                                          push_and_do_task([this, fd, conn] {
+                                               if (isCurrentConnection(fd, conn)) {
+                                                     closeconn(fd);
+                                               }
+                                          });
                                       }
                                    break;
                     case DownloadResult::Error:
