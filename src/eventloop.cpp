@@ -292,6 +292,7 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                             if (isCurrentConnection(fd, conn)) {
                                                       closeconn(fd);
                                              }
+                                             ep->ModFd(fd, EPOLLOUT | event); 
                                           });
                                           break;
                     case DownloadResult::RangeError:

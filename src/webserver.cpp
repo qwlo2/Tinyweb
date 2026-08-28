@@ -69,7 +69,7 @@ WebServer::WebServer(
           };
           StaticFileCache::Instance().Preload(srcDir_, hotStaticFiles);
           //redis的启动
-          Session::Intense()->Init("127.0.0.1",6879,threadarNum_);
+          Session::Intense()->Init("127.0.0.1",6379,threadarNum_);
           if(openLog) {
              Log::Instance()->init(logLevel, "./log", ".log", logQueSize);
           }

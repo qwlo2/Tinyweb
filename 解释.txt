@@ -113,7 +113,7 @@ object——id
 CREATE TABLE file (
     file_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
-    file_name VARCHAR(255) NOT NULL,UNIQUE KEY,
+    file_name VARCHAR(255) NOT NULL ,
     object_id BIGINT UNSIGNED NOT NULL,
 
     KEY idx_user_id(user_id),
@@ -139,7 +139,6 @@ CREATE TABLE share (
 
     KEY idx_file_id (file_id)
 );
-
 用户表：
 user_id(这个通过mysql的自动增长实现),
 username,

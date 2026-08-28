@@ -62,6 +62,8 @@
         .share-home-link:hover,
         .share-home-link:focus-visible { color: var(--share-blue); }
 
+        .share-nav { display: flex; align-items: center; gap: 22px; }
+
         .share-shell {
             width: min(100% - 40px, 1080px);
             margin: 0 auto;
@@ -253,7 +255,10 @@
     <header class="share-header">
         <div class="share-header__inner">
             <a class="share-brand" href="/">My 云盘</a>
-            <a class="share-home-link" href="/">返回首页</a>
+            <nav class="share-nav" aria-label="账户导航">
+                <a class="share-home-link" href="/login.html">登录</a>
+                <a class="share-home-link" href="/register.html">注册</a>
+            </nav>
         </div>
     </header>
 

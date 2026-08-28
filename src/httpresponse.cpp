@@ -25,6 +25,13 @@ const std::unordered_map<std::string, std::string> HttpResponse::SUFFIX_TYPE = {
     { ".tar",   "application/x-tar" },
     { ".css",   "text/css"},
     { ".js",    "text/javascript"},
+    { ".ico",   "image/vnd.microsoft.icon" },
+{ ".woff",  "font/woff" },
+{ ".woff2", "font/woff2" },
+{ ".ttf",   "font/ttf" },
+{ ".eot",   "application/vnd.ms-fontobject" },
+{ ".svg",   "image/svg+xml" },
+{ ".mp4",   "video/mp4" },
 };
 const std::unordered_map<int,std::string> HttpResponse::CODE_STATUS{
      {200,"OK"},
@@ -72,10 +79,10 @@ void HttpResponse::Init(const std::string& srcDir,std::string& path,
    //在init前可能就设置某些字段，因此在MakeResponse后重置
      file_={};
 }
-void HttpResponse::set_filed(std::string name,std::string filed){
+void HttpResponse::set_filed(const std::string& name,const std::string& filed){
      fileds.emplace(name,filed);
 }
-void HttpResponse::set_filed(char* name,char* filed){
+void HttpResponse::set_filed(const char*& name,const char*&filed){
     fileds.emplace(name,filed);
 }
  std::string HttpResponse::get_filed(const std::string& name){

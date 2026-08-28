@@ -3,534 +3,121 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>My 云盘 - 文件管理</title>
+    <title>My 云盘 - 欢迎</title>
     <link rel="icon" href="/images/favicon.ico">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/animate.css">
+    <link rel="stylesheet" href="/css/magnific-popup.css">
     <link rel="stylesheet" href="/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/css/style.css">
     <style>
         :root {
-            color-scheme: light;
-            --cloud-blue: #2f6fed;
-            --cloud-blue-dark: #245bd0;
-            --cloud-text: #17233d;
-            --cloud-muted: #69758a;
-            --cloud-line: #e5eaf2;
-            --cloud-bg: #f3f6fb;
-            --cloud-success: #147d66;
+            --portal-blue: #2f6fed;
+            --portal-blue-dark: #245bd0;
+            --portal-text: #17233d;
+            --portal-muted: #69758a;
+            --portal-line: #e5eaf2;
+            --portal-bg: #f3f6fb;
         }
 
-        * { box-sizing: border-box; }
-        [hidden] { display: none !important; }
-        html, body { min-height: 100%; }
+        body.portal-page { min-height: 100vh; background: var(--portal-bg); color: var(--portal-text); }
+        .portal-page .custom-navbar { background: rgba(255, 255, 255, 0.98); box-shadow: 0 10px 32px rgba(38, 58, 96, 0.08); }
+        .portal-page .custom-navbar .navbar-brand { color: var(--portal-text); font-weight: 700; }
+        .portal-page .custom-navbar .nav li a { color: var(--portal-muted); font-weight: 600; }
+        .portal-page .custom-navbar .nav li a:hover,
+        .portal-page .custom-navbar .nav li.active a { color: var(--portal-blue); }
 
-        body {
-            margin: 0;
-            background: var(--cloud-bg);
-            color: var(--cloud-text);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-                "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .cloud-header {
-            height: 68px;
-            background: #fff;
-            border-bottom: 1px solid rgba(23, 35, 61, 0.06);
-        }
-
-        .cloud-header__inner {
-            width: min(100% - 40px, 1080px);
-            height: 100%;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .cloud-brand {
-            color: var(--cloud-text);
-            font-size: 21px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            text-decoration: none;
-        }
-
-        .cloud-nav {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-
-        .cloud-nav a {
-            color: var(--cloud-muted);
-            font-size: 14px;
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
-        .cloud-nav a[aria-current="page"],
-        .cloud-nav a:hover,
-        .cloud-nav a:focus-visible { color: var(--cloud-blue); }
-
-        .cloud-shell {
-            width: min(100% - 40px, 1080px);
-            margin: 0 auto;
-            padding: 52px 0 64px;
-        }
-
-        .cloud-panel {
-            padding: 44px;
-            background: #fff;
-            border: 1px solid rgba(35, 55, 89, 0.07);
-            border-radius: 20px;
-            box-shadow: 0 18px 48px rgba(38, 58, 96, 0.09);
-        }
-
-        .cloud-intro { margin-bottom: 34px; }
-
-        .cloud-intro__mark {
-            width: 54px;
-            height: 54px;
-            margin-bottom: 20px;
-            display: grid;
-            place-items: center;
-            border-radius: 15px;
-            background: #e7efff;
-            color: var(--cloud-blue);
-            font-size: 25px;
-        }
-
-        .cloud-intro h1 {
-            margin: 0;
-            font-size: 30px;
-            line-height: 1.3;
-        }
-
-        .cloud-intro p {
-            margin: 10px 0 0;
-            color: var(--cloud-muted);
-            font-size: 15px;
-            line-height: 1.7;
-        }
-
-        .cloud-workspace {
-            display: grid;
-            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-            gap: 24px;
-            align-items: start;
-        }
-
-        .cloud-section {
-            padding: 30px;
-            border: 1px solid var(--cloud-line);
-            border-radius: 16px;
-            background: #fbfcfe;
-        }
-
-        .cloud-section__heading {
-            margin-bottom: 24px;
-            display: flex;
-            align-items: flex-start;
-            gap: 13px;
-        }
-
-        .cloud-section__icon {
-            width: 38px;
-            height: 38px;
-            flex: 0 0 auto;
-            display: grid;
-            place-items: center;
-            border-radius: 11px;
-            background: #e9f0ff;
-            color: var(--cloud-blue);
-            font-size: 17px;
-        }
-
-        .cloud-section h2 {
-            margin: 0;
-            font-size: 20px;
-            line-height: 1.35;
-        }
-
-        .cloud-section__heading p {
-            margin: 5px 0 0;
-            color: var(--cloud-muted);
-            font-size: 13px;
-            line-height: 1.55;
-        }
-
-        .cloud-field { margin-bottom: 19px; }
-
-        .cloud-field label {
-            margin-bottom: 8px;
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .cloud-input,
-        .cloud-select,
-        .cloud-file-input {
-            width: 100%;
-            min-height: 48px;
-            border: 1px solid #d9e0eb;
-            border-radius: 10px;
-            outline: none;
-            background: #fff;
-            color: var(--cloud-text);
-            font: inherit;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .cloud-input,
-        .cloud-select { padding: 0 14px; }
-        .cloud-file-input { padding: 8px; color: var(--cloud-muted); font-size: 14px; }
-
-        .cloud-file-input::file-selector-button {
-            height: 30px;
-            margin-right: 12px;
-            padding: 0 13px;
-            border: 0;
-            border-radius: 7px;
-            background: #edf3ff;
-            color: var(--cloud-blue-dark);
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .cloud-input:focus,
-        .cloud-select:focus,
-        .cloud-file-input:focus {
-            border-color: var(--cloud-blue);
-            box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12);
-        }
-
-        .cloud-select { cursor: pointer; }
-
-        .cloud-button {
-            width: 100%;
-            min-height: 48px;
-            border: 0;
-            border-radius: 10px;
-            background: var(--cloud-blue);
-            color: #fff;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 15px;
-            font-weight: 600;
-            box-shadow: 0 8px 20px rgba(47, 111, 237, 0.2);
-            transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
-        }
-
-        .cloud-button:hover,
-        .cloud-button:focus-visible { background: var(--cloud-blue-dark); }
-        .cloud-button:active { transform: translateY(1px); }
-        .cloud-button:disabled { cursor: wait; opacity: 0.65; }
-
-        .cloud-upload-note {
-            margin: 17px 0 0;
-            color: var(--cloud-muted);
-            font-size: 12px;
-            line-height: 1.6;
-        }
-
-        .cloud-status {
-            margin-top: 22px;
-            padding: 13px 15px;
-            border: 1px solid transparent;
-            border-radius: 10px;
-            font-size: 13px;
-            line-height: 1.65;
-        }
-
-        .cloud-status--success {
-            border-color: #bfe8dc;
-            background: #edf9f5;
-            color: var(--cloud-success);
-        }
-
-        .cloud-status--warning {
-            border-color: #f2d49d;
-            background: #fff8e9;
-            color: #8a5a08;
-        }
-
-        .cloud-status--error {
-            border-color: #ffd6d2;
-            background: #fff2f2;
-            color: #b42318;
-        }
-
-        .cloud-result {
-            margin-top: 18px;
-            padding: 20px;
-            border: 1px solid #dce5f4;
-            border-radius: 12px;
-            background: #fff;
-        }
-
-        .cloud-result h3 {
-            margin: 0 0 17px;
-            font-size: 16px;
-        }
-
-        .cloud-result label {
-            margin-bottom: 8px;
-            display: block;
-            color: var(--cloud-muted);
-            font-size: 13px;
-        }
-
-        .cloud-result__row {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 10px;
-        }
-
-        .cloud-result__link {
-            min-height: 48px;
-            padding: 0 17px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-            background: var(--cloud-blue);
-            color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-
-        .cloud-result__code {
-            margin-top: 16px;
-            padding-top: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 20px;
-            border-top: 1px solid var(--cloud-line);
-            font-size: 14px;
-        }
-
-        .cloud-result__code span { color: var(--cloud-muted); }
-        .cloud-result__code strong { letter-spacing: 0.04em; }
+        .portal-shell { width: min(100% - 40px, 1080px); margin: 0 auto; padding: 128px 0 64px; }
+        .portal-hero { padding: 50px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 36px; align-items: center; border: 1px solid rgba(35, 55, 89, 0.07); border-radius: 20px; background: linear-gradient(145deg, #fff 0%, #f5f8ff 100%); box-shadow: 0 18px 48px rgba(38, 58, 96, 0.09); }
+        .portal-badge { margin-bottom: 18px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; background: #e8f7f3; color: #147d66; font-size: 13px; font-weight: 700; }
+        .portal-hero h1 { margin: 0; font-size: 38px; line-height: 1.3; }
+        .portal-hero p { max-width: 650px; margin: 14px 0 26px; color: var(--portal-muted); font-size: 16px; line-height: 1.8; }
+        .portal-primary { min-height: 48px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border-radius: 10px; background: var(--portal-blue); color: #fff !important; font-size: 15px; font-weight: 600; text-decoration: none; box-shadow: 0 8px 20px rgba(47, 111, 237, 0.2); }
+        .portal-primary:hover,
+        .portal-primary:focus-visible { background: var(--portal-blue-dark); text-decoration: none; }
+        .portal-hero__icon { width: 126px; height: 126px; display: grid; place-items: center; border-radius: 32px; background: #e5eeff; color: var(--portal-blue); font-size: 56px; box-shadow: inset 0 0 0 1px rgba(47, 111, 237, 0.08); }
+        .portal-features { margin-top: 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+        .portal-card { min-height: 210px; padding: 28px; display: flex; flex-direction: column; border: 1px solid var(--portal-line); border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgba(38, 58, 96, 0.06); }
+        .portal-card__icon { width: 44px; height: 44px; margin-bottom: 20px; display: grid; place-items: center; border-radius: 12px; background: #eaf1ff; color: var(--portal-blue); font-size: 19px; }
+        .portal-card h2 { margin: 0 0 10px; font-size: 19px; }
+        .portal-card p { margin: 0 0 20px; color: var(--portal-muted); font-size: 14px; line-height: 1.7; }
+        .portal-card a { margin-top: auto; color: var(--portal-blue); font-size: 14px; font-weight: 600; text-decoration: none; }
 
         @media (max-width: 780px) {
-            .cloud-header { height: 60px; }
-            .cloud-header__inner,
-            .cloud-shell { width: min(100% - 28px, 1080px); }
-            .cloud-nav { gap: 15px; }
-            .cloud-nav a:nth-last-child(-n + 2) { display: none; }
-            .cloud-shell { padding: 28px 0; }
-            .cloud-panel { padding: 28px 20px; border-radius: 16px; }
-            .cloud-intro { margin-bottom: 26px; }
-            .cloud-intro h1 { font-size: 25px; }
-            .cloud-workspace { grid-template-columns: 1fr; }
-            .cloud-section { padding: 24px 20px; }
-        }
-
-        @media (max-width: 480px) {
-            .cloud-result__row { grid-template-columns: 1fr; }
-            .cloud-result__link { width: 100%; }
+            .portal-shell { width: min(100% - 28px, 1080px); padding: 100px 0 28px; }
+            .portal-hero { padding: 34px 26px; grid-template-columns: 1fr; }
+            .portal-hero h1 { font-size: 30px; }
+            .portal-hero__icon { display: none; }
+            .portal-features { grid-template-columns: 1fr; }
+            .portal-card { min-height: 0; }
         }
     </style>
 </head>
-<body>
-    <header class="cloud-header">
-        <div class="cloud-header__inner">
-            <a class="cloud-brand" href="/">My 云盘</a>
-            <nav class="cloud-nav" aria-label="主导航">
-                <a href="/">首页</a>
-                <a href="/welcome.html" aria-current="page">云盘</a>
-                <a href="/login.html">登录</a>
-                <a href="/register.html">注册</a>
-            </nav>
+<body class="site-page portal-page" data-spy="scroll" data-target=".navbar-collapse" data-offset="50">
+    <div class="preloader">
+        <div class="spinner"><span class="spinner-rotate"></span></div>
+    </div>
+
+    <div class="navbar custom-navbar navbar-fixed-top" role="navigation">
+        <div class="container">
+            <div class="navbar-header">
+                <button class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse" aria-label="切换导航">
+                    <span class="icon icon-bar"></span>
+                    <span class="icon icon-bar"></span>
+                    <span class="icon icon-bar"></span>
+                </button>
+                <a href="/welcome.html" class="navbar-brand">My 云盘</a>
+            </div>
+            <div class="collapse navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="active"><a href="/welcome.html">欢迎页</a></li>
+                    <li><a href="/cloud.html">我的云盘</a></li>
+                    <li><a href="/picture.html">图片</a></li>
+                    <li><a href="/video.html">视频</a></li>
+                </ul>
+            </div>
         </div>
-    </header>
+    </div>
 
-    <main class="cloud-shell">
-        <section class="cloud-panel" aria-labelledby="cloud-title">
-            <div class="cloud-intro">
-                <div class="cloud-intro__mark" aria-hidden="true">
-                    <i class="fa fa-cloud"></i>
-                </div>
-                <h1 id="cloud-title">我的云盘</h1>
-                <p>上传文件到个人空间，或为已有文件创建安全的分享链接。</p>
+    <main class="portal-shell">
+        <section class="portal-hero" aria-labelledby="welcome-title">
+            <div>
+                <div class="portal-badge"><i class="fa fa-check-circle" aria-hidden="true"></i> 登录成功</div>
+                <h1 id="welcome-title">欢迎回来</h1>
+                <p>你的个人内容空间已经准备好。你可以管理云盘文件，也可以继续浏览保存的图片和视频。</p>
+                <a class="portal-primary" href="/cloud.html"><i class="fa fa-cloud" aria-hidden="true"></i>进入我的云盘</a>
             </div>
+            <div class="portal-hero__icon" aria-hidden="true"><i class="fa fa-folder-open-o"></i></div>
+        </section>
 
-            <div class="cloud-workspace">
-                <section class="cloud-section" aria-labelledby="upload-title">
-                    <div class="cloud-section__heading">
-                        <div class="cloud-section__icon" aria-hidden="true">
-                            <i class="fa fa-upload"></i>
-                        </div>
-                        <div>
-                            <h2 id="upload-title">上传文件</h2>
-                            <p>选择本地文件并保存到你的云盘</p>
-                        </div>
-                    </div>
-
-                    <form action="/file" method="post" enctype="multipart/form-data">
-                        <div class="cloud-field">
-                            <label for="upload-file">选择文件</label>
-                            <input id="upload-file" class="cloud-file-input" type="file" name="file" required>
-                        </div>
-                        <button class="cloud-button" type="submit">上传文件</button>
-                    </form>
-                    <p class="cloud-upload-note">上传完成后，可在右侧输入文件名创建分享。</p>
-                </section>
-
-                <section class="cloud-section" aria-labelledby="share-create-title">
-                    <div class="cloud-section__heading">
-                        <div class="cloud-section__icon" aria-hidden="true">
-                            <i class="fa fa-share-alt"></i>
-                        </div>
-                        <div>
-                            <h2 id="share-create-title">创建分享</h2>
-                            <p>为云盘中的文件设置提取码和有效期</p>
-                        </div>
-                    </div>
-
-                    <form id="share-create-form" action="/share" method="post">
-                        <div class="cloud-field">
-                            <label for="share-filename">文件名</label>
-                            <input id="share-filename" class="cloud-input" name="filename"
-                                type="text" placeholder="请输入云盘中的完整文件名" required>
-                        </div>
-
-                        <div class="cloud-field">
-                            <label for="share-code-option">提取码</label>
-                            <select id="share-code-option" class="cloud-select" name="code">
-                                <option value="false">无提取码</option>
-                                <option value="true">生成提取码</option>
-                            </select>
-                        </div>
-
-                        <div class="cloud-field">
-                            <label for="share-expire-time">有效期</label>
-                            <select id="share-expire-time" class="cloud-select" name="expire_time">
-                                <option value="1">1 天</option>
-                                <option value="7">7 天</option>
-                                <option value="30">30 天</option>
-                                <option value="null">永久</option>
-                            </select>
-                        </div>
-
-                        <button id="share-submit-button" class="cloud-button" type="submit">创建分享</button>
-                    </form>
-
-                    <div id="share-create-status" class="cloud-status" role="status" aria-live="polite" hidden></div>
-
-                    <section id="share-create-result" class="cloud-result" aria-labelledby="share-result-title" hidden>
-                        <h3 id="share-result-title">分享结果</h3>
-                        <label for="share-result-url">分享链接</label>
-                        <div class="cloud-result__row">
-                            <input id="share-result-url" class="cloud-input" type="text" readonly>
-                            <a id="share-open-link" class="cloud-result__link" target="_blank" rel="noopener">打开分享页面</a>
-                        </div>
-                        <div class="cloud-result__code">
-                            <span>提取码</span>
-                            <strong id="share-result-code">无提取码</strong>
-                        </div>
-                    </section>
-                </section>
-            </div>
+        <section class="portal-features" aria-label="功能入口">
+            <article class="portal-card">
+                <div class="portal-card__icon" aria-hidden="true"><i class="fa fa-cloud-upload"></i></div>
+                <h2>个人云盘</h2>
+                <p>上传文件，并为已有文件创建带有效期的分享链接。</p>
+                <a href="/cloud.html">管理云盘 <i class="fa fa-angle-right" aria-hidden="true"></i></a>
+            </article>
+            <article class="portal-card">
+                <div class="portal-card__icon" aria-hidden="true"><i class="fa fa-picture-o"></i></div>
+                <h2>图片</h2>
+                <p>查看保存在项目中的图片内容，记录值得留存的瞬间。</p>
+                <a href="/picture.html">浏览图片 <i class="fa fa-angle-right" aria-hidden="true"></i></a>
+            </article>
+            <article class="portal-card">
+                <div class="portal-card__icon" aria-hidden="true"><i class="fa fa-play-circle-o"></i></div>
+                <h2>视频</h2>
+                <p>在响应式播放器中观看服务器提供的视频内容。</p>
+                <a href="/video.html">观看视频 <i class="fa fa-angle-right" aria-hidden="true"></i></a>
+            </article>
         </section>
     </main>
 
-    <script>
-        (() => {
-            "use strict";
-
-            const form = document.getElementById("share-create-form");
-            const submitButton = document.getElementById("share-submit-button");
-            const status = document.getElementById("share-create-status");
-            const result = document.getElementById("share-create-result");
-            const resultUrl = document.getElementById("share-result-url");
-            const resultCode = document.getElementById("share-result-code");
-            const openLink = document.getElementById("share-open-link");
-            const tokenPattern = /^[A-Za-z0-9_-]{8,64}$/;
-
-            const clearResult = () => {
-                status.hidden = true;
-                status.textContent = "";
-                status.className = "cloud-status";
-                result.hidden = true;
-                resultUrl.value = "";
-                resultCode.textContent = "无提取码";
-                openLink.removeAttribute("href");
-            };
-
-            const showStatus = (message, type) => {
-                status.textContent = message;
-                status.className = `cloud-status cloud-status--${type}`;
-                status.hidden = false;
-            };
-
-            form.addEventListener("submit", async (event) => {
-                event.preventDefault();
-                clearResult();
-
-                const originalButtonText = submitButton.textContent;
-                submitButton.disabled = true;
-                submitButton.textContent = "正在创建…";
-
-                const requestBody = new URLSearchParams();
-                new FormData(form).forEach((value, name) => {
-                    requestBody.append(name, value);
-                });
-
-                try {
-                    const response = await fetch("/share", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        body: requestBody.toString(),
-                        credentials: "same-origin"
-                    });
-
-                    if (!response.ok) {
-                        showStatus("创建分享失败，请稍后重试。", "error");
-                        return;
-                    }
-
-                    const token = (response.headers.get("Share-Token") || "").trim();
-                    const code = (response.headers.get("Code") || "").trim();
-
-                    if (!token) {
-                        showStatus(
-                            "服务器未返回 Share-Token。当前后端仍只把 token 写入 HttpOnly Cookie，HTML 页面无法生成分享链接。",
-                            "warning"
-                        );
-                        return;
-                    }
-
-                    if (!tokenPattern.test(token)) {
-                        showStatus("服务器返回的 Share-Token 格式无效。", "error");
-                        return;
-                    }
-
-                    const shareUrl = new URL(
-                        "/share/" + encodeURIComponent(token),
-                        window.location.origin
-                    ).href;
-
-                    resultUrl.value = shareUrl;
-                    openLink.href = shareUrl;
-                    resultCode.textContent = code && code !== "NULL" ? code : "无提取码";
-                    result.hidden = false;
-                    showStatus("分享创建成功，可以打开或保存以下链接。", "success");
-                } catch (error) {
-                    showStatus("网络请求失败，请检查连接后重试。", "error");
-                } finally {
-                    submitButton.disabled = false;
-                    submitButton.textContent = originalButtonText;
-                }
-            });
-        })();
-    </script>
+    <script src="/js/jquery.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/smoothscroll.js"></script>
+    <script src="/js/jquery.magnific-popup.min.js"></script>
+    <script src="/js/magnific-popup-options.js"></script>
+    <script src="/js/wow.min.js"></script>
+    <script src="/js/custom.js"></script>
 </body>
 </html>

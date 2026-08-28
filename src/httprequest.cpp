@@ -677,6 +677,10 @@ const std::string& HttpRequest::route_token() const {
         route_ = RouteType::Download;
         return;
       }
+      if (path_=="/cloud.html") {
+        route_=RouteType::CloudAccess;
+        return;
+      }
       break;
 
      default://普通http

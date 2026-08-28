@@ -35,7 +35,8 @@
         ShareAccess, // GET /share/<token>
         ShareVerify,//验证提取码
         ShareDownload,
-        ShareLogin
+        ShareLogin,
+        CloudAccess
 };
 //让route逻辑更清晰
 enum class HttpMethod {

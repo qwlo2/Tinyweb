@@ -20,6 +20,19 @@
 
      <!-- Main css -->
      <link rel="stylesheet" href="/css/style.css">
+     <style>
+          body.status-page { background: #f3f6fb; color: #17233d; }
+          .status-page .custom-navbar { background: rgba(255, 255, 255, 0.98); box-shadow: 0 10px 32px rgba(38, 58, 96, 0.08); }
+          .status-page .custom-navbar .navbar-brand { color: #17233d; font-weight: 700; }
+          .status-page .custom-navbar .nav li a { color: #69758a; font-weight: 600; }
+          .status-page .custom-navbar .nav li a:hover { color: #2f6fed; }
+          .status-page #home { background: linear-gradient(145deg, #f8fbff 0%, #edf3fd 100%); }
+          .status-card { border: 1px solid rgba(35, 55, 89, 0.08); border-radius: 18px; box-shadow: 0 18px 48px rgba(38, 58, 96, 0.1); }
+          .status-card h1 { color: #17233d; }
+          .status-card p { color: #69758a; line-height: 1.7; }
+          .site-button { border-color: #2f6fed; border-radius: 10px; background: #2f6fed; box-shadow: 0 8px 20px rgba(47, 111, 237, 0.2); }
+          .site-button:hover { border-color: #245bd0; background: #245bd0; }
+     </style>
 
 </head>
 
@@ -49,10 +62,8 @@
 
                <div class="collapse navbar-collapse">
                     <ul class="nav navbar-nav navbar-right">
-                         <li><a class="smoothScroll" href="/">首页</a></li>
-                         <li><a class="smoothScroll" href="/welcome.html">云盘</a></li>
-                         <li><a class="smoothScroll" href="/login.html">登录</a></li>
-                         <li><a class="smoothScroll" href="/register.html">注册</a></li>
+                         <li><a href="/login.html">登录</a></li>
+                         <li><a href="/register.html">注册</a></li>
                     </ul>
                </div>
 

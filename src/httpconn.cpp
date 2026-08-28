@@ -191,6 +191,14 @@ ProcessResult HttpConn::process(){
                sta=actual_ProcessResult::ShareDownload;
                return ProcessResult::share;
         }
+        case  RouteType::CloudAccess:{
+              size_t user_id=0;
+               //这里的uer-id是冗余的，在之后下载需要的userid是file所属的，不是账号本身的
+               if (!versityToken(user_id) ) {
+                  ret = responseResult::Unauthorized;
+               }
+            break;
+        }
         case RouteType::Normal:
            // 普通静态资源,sta并未在init中重置
             sta={};
@@ -469,6 +477,7 @@ DownloadResult HttpConn::handle_down(){
      if (tmp==DownloadResult::Error) {
         
         makeResponse(responseResult::ServerError);
+         sta=actual_ProcessResult::responseOnly;
         //needwrite代表等待缓冲区，其他的直接写
         return  DownloadResult::Error;
      }else if (tmp==DownloadResult::RangeError) {

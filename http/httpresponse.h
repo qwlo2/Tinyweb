@@ -37,8 +37,8 @@ public:
     int Code() const { return code_; }
      
 
-    void set_filed(std::string name,std::string filed);
-    void set_filed(char* name,char* filed);
+    void set_filed(const std::string& name,const std::string& filed);
+    void set_filed(const char*& name,const char*& filed);
     std::string get_filed(const std::string& name);
     std::string get_filed(const char*& name);
 private:

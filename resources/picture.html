@@ -22,13 +22,24 @@
      <link rel="stylesheet" href="/css/style.css">
      <style>
           body.picture-page {
-               background: #f7f7f5;
+               background: #f3f6fb;
+               color: #17233d;
           }
+
+          .picture-page .custom-navbar {
+               background: rgba(255, 255, 255, 0.98);
+               box-shadow: 0 10px 32px rgba(38, 58, 96, 0.08);
+          }
+
+          .picture-page .custom-navbar .navbar-brand { color: #17233d; font-weight: 700; }
+          .picture-page .custom-navbar .nav li a { color: #69758a; font-weight: 600; }
+          .picture-page .custom-navbar .nav li a:hover,
+          .picture-page .custom-navbar .nav li.active a { color: #2f6fed; }
 
           .picture-page #home {
                height: 360px;
                padding-top: 84px;
-               background: linear-gradient(180deg, #ffffff 0%, #f7f7f5 100%);
+               background: linear-gradient(145deg, #ffffff 0%, #eef4ff 100%);
           }
 
           .picture-page #home h1 {
@@ -56,8 +67,9 @@
                width: min(920px, 94%);
                padding: 18px;
                background: #ffffff;
-               border-radius: 8px;
-               box-shadow: 0 18px 45px rgba(34, 34, 34, 0.10);
+               border: 1px solid #e5eaf2;
+               border-radius: 16px;
+               box-shadow: 0 18px 45px rgba(38, 58, 96, 0.09);
           }
 
           .picture-list img {
@@ -113,15 +125,15 @@
                          <span class="icon icon-bar"></span>
                     </button>
                     <!-- lOGO TEXT HERE -->
-                    <a href="/" class="navbar-brand">My 云盘</a>
+                    <a href="/welcome.html" class="navbar-brand">My 云盘</a>
                </div>
 
                <div class="collapse navbar-collapse">
                     <ul class="nav navbar-nav navbar-right">
-                         <li><a class="smoothScroll" href="/">首页</a></li>
-                         <li><a class="smoothScroll" href="/welcome.html">云盘</a></li>
-                         <li><a class="smoothScroll" href="/login.html">登录</a></li>
-                         <li><a class="smoothScroll" href="/register.html">注册</a></li>
+                         <li><a href="/welcome.html">欢迎页</a></li>
+                         <li><a href="/cloud.html">我的云盘</a></li>
+                         <li class="active"><a href="/picture.html">图片</a></li>
+                         <li><a href="/video.html">视频</a></li>
                     </ul>
                </div>
           </div>
@@ -138,8 +150,8 @@
                     </div>
 
                     <div class="col-md-8 col-sm-8">
-                         <h1 class="wow fadeInUp" data-wow-delay="0.6s">图片测试</h1>
-                         <p class="wow fadeInUp" data-wow-delay="0.8s">记录一些喜欢的瞬间。</p>
+                         <h1 class="wow fadeInUp" data-wow-delay="0.6s">图片收藏</h1>
+                         <p class="wow fadeInUp" data-wow-delay="0.8s">浏览保存在个人空间里的图片内容。</p>
                     </div>
 
                </div>
