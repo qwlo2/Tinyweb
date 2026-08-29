@@ -677,8 +677,10 @@ const std::string& HttpRequest::route_token() const {
         route_ = RouteType::Download;
         return;
       }
-      if (path_=="/cloud.html") {
-        route_=RouteType::CloudAccess;
+      if (path_ == "/welcome.html" || path_ == "/cloud.html" ||
+          path_ == "/picture.html" || path_ == "/video.html" ||
+          path_ == "/upload_success.html") {
+        route_ = RouteType::CloudAccess;
         return;
       }
       break;

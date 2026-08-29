@@ -192,6 +192,9 @@ ProcessResult HttpConn::process(){
                return ProcessResult::share;
         }
         case  RouteType::CloudAccess:{
+            //所有登录后才能访问的页面必须要versityToken
+            //但Normal下如首页这些要在登录前访问
+              sta = actual_ProcessResult::responseOnly;
               size_t user_id=0;
                //这里的uer-id是冗余的，在之后下载需要的userid是file所属的，不是账号本身的
                if (!versityToken(user_id) ) {
