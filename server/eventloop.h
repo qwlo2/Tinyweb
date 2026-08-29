@@ -68,6 +68,7 @@ class eventloop{
       void handle_response_write(int fd,const std::shared_ptr<HttpConn> conn);
        //处理分享
       void hadleShare(int fd,const std::shared_ptr<HttpConn> conn);
+      void handleCloudData(int fd,const std::shared_ptr<HttpConn> conn);
       //读写完调用它
       void process(int fd);
 

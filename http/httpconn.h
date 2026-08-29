@@ -15,6 +15,7 @@ enum class ProcessResult {
     Upload,
     Download,
     share,
+    CloudData,
 };
 //如果每一种状态都在loop对于一种函数，太多了
 //将其整理为一种状态（如share）
@@ -28,7 +29,13 @@ enum class actual_ProcessResult{
     ShareDownload,
      ShareAccess, // GET /share/<token>
      ShareLogin,//这样就可以避免一个client获取
-     responseOnly
+     FileList,
+     FileDelete,
+     ShareList,
+     responseOnly,
+     RangeError,
+     Unauthorized,
+     ServerError
 };
 class HttpConn {
 public:
@@ -68,12 +75,21 @@ public:
       bool get_download_inited();
      actual_ProcessResult get_sta();
     //分享
-    bool handle_share();
+   // bool handle_share();
     bool handle_ShareAccess();
     bool handle_ShareCreate();
     bool handle_ShareVerify();
     bool handle_ShareDownload();
     bool handle_ShareLogin();
+
+    //显示功能和删除
+    bool handle_FileList();
+    bool handle_FileDelete();
+    bool handle_ShareList();
+
+   // bool handle_CloudData();
+    //所有根据sta判断handle函数的类型
+    bool handle_route();
     responseResult status_route(actual_ProcessResult& sta);
 
     void makeResponse(responseResult  sta);
@@ -108,7 +124,6 @@ private:
    
     HttpRequest request_;
     HttpResponse response_;
-
     //登录/注册
     Auth authuser;
     //文件下载上传

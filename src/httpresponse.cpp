@@ -113,7 +113,7 @@ size_t HttpResponse::getFileLen() const {
 }
 
 void HttpResponse::MakeResponse(Buffer& buff,responseResult sta) {
-    if (sta == responseResult::Download) {
+    if (sta == responseResult::Download || sta == responseResult::Json) {
         file_.reset();
 
         AddStateLine_(buff, sta);
@@ -190,6 +190,8 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     }
     if (sta == responseResult::Download) {
       buff.Append("Content-Type: application/octet-stream\r\n");
+    } else if (sta == responseResult::Json) {
+      buff.Append("Content-Type: application/json; charset=utf-8\r\n");
     } else {
       buff.Append("Content-Type: " + GetFileType_() + "\r\n");
     }
@@ -215,6 +217,13 @@ void HttpResponse::AddContent_(Buffer &buff,responseResult& sta){//获取file.si
         buff.Append( "Content-Length: "+fileds[ "Content-Length: "]+"\r\n");
         buff.Append("Content-Disposition: attachment; filename=\"" +
                     fileds["filename"] + "\"\r\n\r\n");
+        return;
+    }
+    if (sta == responseResult::Json) {
+        const std::string& body = fileds["body"];
+        buff.Append("Content-Length: " + std::to_string(body.size()) +
+                    "\r\n\r\n");
+        buff.Append(body);
         return;
     }
     if (sta==responseResult::RangeError) {

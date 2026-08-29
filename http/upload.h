@@ -2,15 +2,23 @@
 
 #include "buffer.h"
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <list>
+#include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include <openssl/evp.h>
 enum class Upload{
       NeedRead,
       ReadyWrite,
       UploadError
+};
+struct FileListItem {
+      std::uint64_t file_id;
+      std::string file_name;
+      std::uint64_t file_size;
 };
 class UploadFile{
     private:
@@ -52,4 +60,6 @@ class UploadFile{
        bool rename_file(std::filesystem::path& fina_path);
        //增加object或者引用数量
         bool add_or_increment_object(std::filesystem::path& fina_path);
+       std::optional<std::vector<FileListItem>> list_files(std::size_t user_id);
+       bool delete_file(std::size_t user_id, std::uint64_t file_id);
 };

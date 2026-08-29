@@ -268,6 +268,8 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                       hadleDownload(fd, conn);
                                             }else if (sta==ProcessResult::share) {
                                                       hadleShare(fd, conn);
+                                            }else if (sta==ProcessResult::CloudData) {
+                                                      handleCloudData(fd, conn);
                                             }  else {                    
                                                     push_and_do_task([this, fd, conn]() {
                                                        if (!isCurrentConnection(fd, conn)) {
@@ -311,8 +313,10 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
  void eventloop::hadleShare(int fd,const std::shared_ptr<HttpConn> conn){
              ThreadPool::init_Db()->AddTask([this,fd,conn](){
                            //失败
-                          if (!conn->handle_share()) {
-                               conn->makeResponse(responseResult::ServerError);
+                          if (!conn->handle_route()) {
+                            //可以直接判断makeResponse的类型
+                             //未登录或者serverError
+                               conn->makeResponse(conn->status_route(conn->sta));
                                push_and_do_task([this, fd, conn]() {
                                                        if (!isCurrentConnection(fd, conn)) {
                                                                   return;
@@ -336,6 +340,23 @@ void eventloop::handleAuth(int fd,const std::shared_ptr<HttpConn> conn){
                                                       }); 
                    });
  }
+void eventloop::handleCloudData(int fd,
+                                const std::shared_ptr<HttpConn> conn) {
+    ThreadPool::init_Db()->AddTask([this, fd, conn]() {
+        if (conn->handle_route()) {
+            conn->makeResponse(responseResult::Json);
+        } else {
+            //未登录或者serverError
+            conn->makeResponse(conn->status_route(conn->sta));
+        }
+        push_and_do_task([this, fd, conn]() {
+            if (!isCurrentConnection(fd, conn)) {
+                return;
+            }
+            ep->ModFd(fd, EPOLLOUT | event);
+        });
+    });
+}
 void eventloop::DealRead(int fd){
      if (!httpcoon.contains(fd)) {
         return;
@@ -383,6 +404,8 @@ void eventloop::Onread(int fd,const std::shared_ptr<HttpConn> conn){
               hadleDownload(fd,conn);
           }else if (sta==ProcessResult::share) {
               hadleShare(fd, conn);
+          }else if (sta==ProcessResult::CloudData) {
+              handleCloudData(fd, conn);
           }else{
             push_and_do_task([this, fd, conn]() {
                if (!isCurrentConnection(fd, conn)) {
@@ -452,6 +475,8 @@ void eventloop::Onwrite(int fd,const std::shared_ptr<HttpConn> conn){
                     hadleDownload(fd, conn);
                   } else if (sta == ProcessResult::share) {
                     hadleShare(fd, conn);
+                  } else if (sta == ProcessResult::CloudData) {
+                    handleCloudData(fd, conn);
                   } else {
                     push_and_do_task([this, fd, conn]() {
                       if (!isCurrentConnection(fd, conn)) {

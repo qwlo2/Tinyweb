@@ -3,8 +3,10 @@
 #include "session.h"
 #include "sha256.h"
 #include "sqlconnpool.h"
+#include <array>
 #include <charconv>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <mysql/mysql.h>
@@ -12,6 +14,7 @@
 #include <string>
 #include <sys/random.h>
 #include <utility>
+#include <vector>
 std::optional<std::string> File_shared::get_share_token(){
 
     auto random_bytes=std::move(get_code(16));
@@ -450,5 +453,101 @@ bool  File_shared::versity_doenload(size_t& file_id,  std::string& auth_hash){
                     return "";
                   }
                   freeReplyObject(reply);
-                 return  "false";
- }
+                return  "false";
+}
+
+std::optional<std::vector<ShareListItem>> File_shared::list_shares(
+    std::size_t current_user_id) {
+    auto mysql = SqlConnPool::Instance()->GetConn();
+    if (!mysql) {
+        return std::nullopt;
+    }
+
+    const std::string sql =
+        "SELECT f.file_name,s.share_token,(s.code_hash IS NOT NULL),"
+        "DATE_FORMAT(s.expire_time,'%Y-%m-%d %H:%i:%s'),"
+        "DATE_FORMAT(s.created_at,'%Y-%m-%d %H:%i:%s') "
+        "FROM share AS s JOIN `file` AS f ON f.file_id=s.file_id "
+        "WHERE f.user_id=? ORDER BY s.created_at DESC;";
+    std::shared_ptr<MYSQL_STMT> stmt(
+        mysql_stmt_init(mysql.get()),
+        [](MYSQL_STMT* value) {
+            if (value) {
+                mysql_stmt_close(value);
+            }
+        });
+    if (!stmt) {
+        return std::nullopt;
+    }
+
+    std::uint64_t user_id_value = current_user_id;
+    MYSQL_BIND param{};
+    param.buffer_type = MYSQL_TYPE_LONGLONG;
+    param.buffer = &user_id_value;
+    param.is_unsigned = true;
+    if (mysql_stmt_prepare(stmt.get(), sql.data(),
+                           static_cast<unsigned long>(sql.size())) != 0 ||
+        mysql_stmt_bind_param(stmt.get(), &param) != 0 ||
+        mysql_stmt_execute(stmt.get()) != 0) {
+        return std::nullopt;
+    }
+
+    std::array<char, 1021> file_name{};
+    unsigned long file_name_length = 0;
+    std::array<char, 65> share_token{};
+    unsigned long share_token_length = 0;
+    unsigned char has_code_value = 0;
+    std::array<char, 20> expire_time{};
+    unsigned long expire_time_length = 0;
+    bool expire_time_is_null = false;
+    std::array<char, 20> created_at{};
+    unsigned long created_at_length = 0;
+    MYSQL_BIND result[5]{};
+    result[0].buffer_type = MYSQL_TYPE_STRING;
+    result[0].buffer = file_name.data();
+    result[0].buffer_length = file_name.size();
+    result[0].length = &file_name_length;
+    result[1].buffer_type = MYSQL_TYPE_STRING;
+    result[1].buffer = share_token.data();
+    result[1].buffer_length = share_token.size();
+    result[1].length = &share_token_length;
+    result[2].buffer_type = MYSQL_TYPE_TINY;
+    result[2].buffer = &has_code_value;
+    result[2].is_unsigned = true;
+    result[3].buffer_type = MYSQL_TYPE_STRING;
+    result[3].buffer = expire_time.data();
+    result[3].buffer_length = expire_time.size();
+    result[3].length = &expire_time_length;
+    result[3].is_null = &expire_time_is_null;
+    result[4].buffer_type = MYSQL_TYPE_STRING;
+    result[4].buffer = created_at.data();
+    result[4].buffer_length = created_at.size();
+    result[4].length = &created_at_length;
+
+    if (mysql_stmt_bind_result(stmt.get(), result) != 0 ||
+        mysql_stmt_store_result(stmt.get()) != 0) {
+        return std::nullopt;
+    }
+
+    std::vector<ShareListItem> shares;
+    for (;;) {
+        const int fetch_result = mysql_stmt_fetch(stmt.get());
+        if (fetch_result == MYSQL_NO_DATA) {
+            break;
+        }
+        if (fetch_result != 0) {
+            return std::nullopt;
+        }
+        ShareListItem item;
+        item.file_name.assign(file_name.data(), file_name_length);
+        item.share_token.assign(share_token.data(), share_token_length);
+        item.has_code = has_code_value != 0;
+        if (!expire_time_is_null) {
+            item.expire_time = std::string(expire_time.data(),
+                                           expire_time_length);
+        }
+        item.created_at.assign(created_at.data(), created_at_length);
+        shares.push_back(std::move(item));
+    }
+    return shares;
+}

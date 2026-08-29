@@ -664,6 +664,11 @@ const std::string& HttpRequest::route_token() const {
             return;
         }
 
+        if (path_ == "/file/delete") {
+            route_ = RouteType::FileDelete;
+            return;
+        }
+
         if (path_ == "/file") {
             route_ = RouteType::Upload;
             return;
@@ -673,6 +678,10 @@ const std::string& HttpRequest::route_token() const {
 
 
     case HttpMethod::GET:
+      if (path_ == "/file") {
+        route_ = RouteType::FileList;
+        return;
+      }
       if (path_.starts_with("/file/") && path_.size() > 6) {
         route_ = RouteType::Download;
         return;
@@ -698,7 +707,9 @@ const std::string& HttpRequest::route_token() const {
     constexpr std::string_view SHARE_PREFIX = "/share/";
 
     if (path_ == SHARE_PATH) {
-        if (method_ == HttpMethod::POST) {
+        if (method_ == HttpMethod::GET) {
+            route_ = RouteType::ShareList;
+        } else if (method_ == HttpMethod::POST) {
             route_ = RouteType::ShareCreate;
         } 
         //错误则分为normal，在响应报文中返回error.html

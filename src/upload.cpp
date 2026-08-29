@@ -1,6 +1,7 @@
 #include "upload.h"
 #include "buffer.h"
 #include "sqlconnpool.h"
+#include <array>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
@@ -8,6 +9,7 @@
 #include <filesystem>
 #include <iomanip>
 #include <ios>
+#include <memory>
 #include <openssl/evp.h>
 #include <openssl/types.h>
 #include <sstream>
@@ -15,6 +17,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 
 void UploadFile::parase_filed(std::list<std::string>& list){
@@ -49,6 +52,7 @@ void UploadFile::init(){
   }
   temp_path.clear();
   boundary={};
+  
 }
 UploadFile::~UploadFile(){
   if (file_fd>0) {
@@ -384,3 +388,236 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
 
     return true;
  }
+
+std::optional<std::vector<FileListItem>> UploadFile::list_files(
+    std::size_t current_user_id) {
+    auto mysql = SqlConnPool::Instance()->GetConn();
+    if (!mysql) {
+        return std::nullopt;
+    }
+
+    const std::string sql =
+        "SELECT f.file_id,f.file_name,o.file_size "
+        "FROM `file` AS f JOIN object AS o ON o.object_id=f.object_id "
+        "WHERE f.user_id=? ORDER BY f.file_id DESC;";
+    std::shared_ptr<MYSQL_STMT> stmt(
+        mysql_stmt_init(mysql.get()),
+        [](MYSQL_STMT* value) {
+            if (value) {
+                mysql_stmt_close(value);
+            }
+        });
+    if (!stmt) {
+        return std::nullopt;
+    }
+
+    std::uint64_t user_id_value = current_user_id;
+    MYSQL_BIND param{};
+    param.buffer_type = MYSQL_TYPE_LONGLONG;
+    param.buffer = &user_id_value;
+    param.is_unsigned = true;
+
+    if (mysql_stmt_prepare(stmt.get(), sql.data(),
+                           static_cast<unsigned long>(sql.size())) != 0 ||
+        mysql_stmt_bind_param(stmt.get(), &param) != 0 ||
+        mysql_stmt_execute(stmt.get()) != 0) {
+        return std::nullopt;
+    }
+
+    std::uint64_t file_id_value = 0;
+    std::array<char, 1021> file_name{};
+    unsigned long file_name_length = 0;
+    std::uint64_t file_size_value = 0;
+    MYSQL_BIND result[3]{};
+    result[0].buffer_type = MYSQL_TYPE_LONGLONG;
+    result[0].buffer = &file_id_value;
+    result[0].is_unsigned = true;
+    result[1].buffer_type = MYSQL_TYPE_STRING;
+    result[1].buffer = file_name.data();
+    result[1].buffer_length = file_name.size();
+    result[1].length = &file_name_length;
+    result[2].buffer_type = MYSQL_TYPE_LONGLONG;
+    result[2].buffer = &file_size_value;
+    result[2].is_unsigned = true;
+
+    if (mysql_stmt_bind_result(stmt.get(), result) != 0 ||
+        mysql_stmt_store_result(stmt.get()) != 0) {
+        return std::nullopt;
+    }
+
+    std::vector<FileListItem> files;
+    for (;;) {
+        const int fetch_result = mysql_stmt_fetch(stmt.get());
+        if (fetch_result == MYSQL_NO_DATA) {
+            break;
+        }
+        if (fetch_result != 0) {
+            return std::nullopt;
+        }
+        files.push_back(FileListItem{
+            file_id_value,
+            std::string(file_name.data(), file_name_length),
+            file_size_value});
+    }
+    return files;
+}
+
+bool UploadFile::delete_file(std::size_t current_user_id,
+                             std::uint64_t requested_file_id) {
+    auto mysql = SqlConnPool::Instance()->GetConn();
+    if (!mysql) {
+        return false;
+    }
+    MYSQL* connection = mysql.get();
+    if (mysql_query(connection, "START TRANSACTION") != 0) {
+        return false;
+    }
+
+    std::uint64_t user_id_value = current_user_id;
+    const std::string select_sql =
+        "SELECT f.file_id,f.object_id,o.storage_path,o.ref_count "
+        "FROM `file` AS f JOIN object AS o ON o.object_id=f.object_id "
+        "WHERE f.file_id=? AND f.user_id=? FOR UPDATE;";
+    const auto make_statement = [connection]() {
+        return std::shared_ptr<MYSQL_STMT>(
+            mysql_stmt_init(connection), [](MYSQL_STMT* value) {
+                if (value) {
+                    mysql_stmt_close(value);
+                }
+            });
+    };
+    auto stmt = make_statement();
+    if (!stmt) {
+        mysql_rollback(connection);
+        return false;
+    }
+
+    MYSQL_BIND select_params[2]{};
+    select_params[0].buffer_type = MYSQL_TYPE_LONGLONG;
+    select_params[0].buffer = &requested_file_id;
+    select_params[0].is_unsigned = true;
+    select_params[1].buffer_type = MYSQL_TYPE_LONGLONG;
+    select_params[1].buffer = &user_id_value;
+    select_params[1].is_unsigned = true;
+    if (mysql_stmt_prepare(stmt.get(), select_sql.data(),
+                           static_cast<unsigned long>(select_sql.size())) != 0 ||
+        mysql_stmt_bind_param(stmt.get(), select_params) != 0 ||
+        mysql_stmt_execute(stmt.get()) != 0) {
+        mysql_rollback(connection);
+        return false;
+    }
+
+    std::uint64_t selected_file_id = 0;
+    std::uint64_t object_id = 0;
+    std::array<char, 513> storage_path_buffer{};
+    unsigned long storage_path_length = 0;
+    std::uint64_t ref_count = 0;
+    MYSQL_BIND select_result[4]{};
+    select_result[0].buffer_type = MYSQL_TYPE_LONGLONG;
+    select_result[0].buffer = &selected_file_id;
+    select_result[0].is_unsigned = true;
+    select_result[1].buffer_type = MYSQL_TYPE_LONGLONG;
+    select_result[1].buffer = &object_id;
+    select_result[1].is_unsigned = true;
+    select_result[2].buffer_type = MYSQL_TYPE_STRING;
+    select_result[2].buffer = storage_path_buffer.data();
+    select_result[2].buffer_length = storage_path_buffer.size();
+    select_result[2].length = &storage_path_length;
+    select_result[3].buffer_type = MYSQL_TYPE_LONGLONG;
+    select_result[3].buffer = &ref_count;
+    select_result[3].is_unsigned = true;
+    if (mysql_stmt_bind_result(stmt.get(), select_result) != 0 ||
+        mysql_stmt_store_result(stmt.get()) != 0 ||
+        mysql_stmt_fetch(stmt.get()) != 0 ||
+        selected_file_id != requested_file_id || ref_count == 0) {
+        mysql_rollback(connection);
+        return false;
+    }
+    const std::string storage_path(storage_path_buffer.data(),
+                                   storage_path_length);
+    stmt.reset();
+
+    const std::string delete_share_sql =
+        "DELETE FROM share WHERE file_id=?;";
+    stmt = make_statement();
+    if (!stmt) {
+        mysql_rollback(connection);
+        return false;
+    }
+    MYSQL_BIND file_id_param{};
+    file_id_param.buffer_type = MYSQL_TYPE_LONGLONG;
+    file_id_param.buffer = &requested_file_id;
+    file_id_param.is_unsigned = true;
+    if (mysql_stmt_prepare(stmt.get(), delete_share_sql.data(),
+                           static_cast<unsigned long>(delete_share_sql.size())) != 0 ||
+        mysql_stmt_bind_param(stmt.get(), &file_id_param) != 0 ||
+        mysql_stmt_execute(stmt.get()) != 0) {
+        mysql_rollback(connection);
+        return false;
+    }
+    stmt.reset();
+
+    const std::string delete_file_sql =
+        "DELETE FROM `file` WHERE file_id=? AND user_id=?;";
+    stmt = make_statement();
+    if (!stmt) {
+        mysql_rollback(connection);
+        return false;
+    }
+    MYSQL_BIND delete_file_params[2]{};
+    delete_file_params[0] = file_id_param;
+    delete_file_params[1].buffer_type = MYSQL_TYPE_LONGLONG;
+    delete_file_params[1].buffer = &user_id_value;
+    delete_file_params[1].is_unsigned = true;
+    if (mysql_stmt_prepare(stmt.get(), delete_file_sql.data(),
+                           static_cast<unsigned long>(delete_file_sql.size())) != 0 ||
+        mysql_stmt_bind_param(stmt.get(), delete_file_params) != 0 ||
+        mysql_stmt_execute(stmt.get()) != 0 ||
+        mysql_stmt_affected_rows(stmt.get()) != 1) {
+        mysql_rollback(connection);
+        return false;
+    }
+    stmt.reset();
+
+    std::string object_sql;
+    if (ref_count > 1) {
+        object_sql =
+            "UPDATE object SET ref_count=ref_count-1 "
+            "WHERE object_id=? AND ref_count=?;";
+    } else {
+        object_sql =
+            "DELETE FROM object WHERE object_id=? AND ref_count=1;";
+    }
+    stmt = make_statement();
+    if (!stmt) {
+        mysql_rollback(connection);
+        return false;
+    }
+    MYSQL_BIND object_params[2]{};
+    object_params[0].buffer_type = MYSQL_TYPE_LONGLONG;
+    object_params[0].buffer = &object_id;
+    object_params[0].is_unsigned = true;
+    object_params[1].buffer_type = MYSQL_TYPE_LONGLONG;
+    object_params[1].buffer = &ref_count;
+    object_params[1].is_unsigned = true;
+    const unsigned long object_param_count = ref_count > 1 ? 2 : 1;
+    if (mysql_stmt_prepare(stmt.get(), object_sql.data(),
+                           static_cast<unsigned long>(object_sql.size())) != 0 ||
+        mysql_stmt_bind_param(stmt.get(), object_params) != 0 ||
+        mysql_stmt_param_count(stmt.get()) != object_param_count ||
+        mysql_stmt_execute(stmt.get()) != 0 ||
+        mysql_stmt_affected_rows(stmt.get()) != 1) {
+        mysql_rollback(connection);
+        return false;
+    }
+
+    if (mysql_commit(connection) != 0) {
+        mysql_rollback(connection);
+        return false;
+    }
+    if (ref_count == 1 && ::unlink(storage_path.c_str()) != 0 &&
+        errno != ENOENT) {
+        return false;
+    }
+    return true;
+}

@@ -1,9 +1,18 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
+struct ShareListItem {
+     std::string file_name;
+     std::string share_token;
+     bool has_code;
+     std::optional<std::string> expire_time;
+     std::string created_at;
+};
 class File_shared{
    private:
     std::optional<std::string> get_share_token();
@@ -23,6 +32,7 @@ class File_shared{
      //bool没有区分开code是否为null，或者错误
      //返回是否需要code
      std::string vsersity_ShareAccess(const std::string& token);
+     std::optional<std::vector<ShareListItem>> list_shares(std::size_t user_id);
 };
 // 1. GET  /share/<token>
 //    → 展示文件信息/提取码页面

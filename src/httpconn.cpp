@@ -22,9 +22,111 @@
 #include <stdlib.h>      // atoi()
 #include <errno.h>    
 #include <algorithm>
+#include <charconv>
 #include <cstring>
+#include <optional>
+#include <string_view>
 #include <unistd.h>
 #include <utility>
+
+namespace {
+std::string JsonEscape(std::string_view value) {
+    constexpr char HEX[] = "0123456789abcdef";
+    std::string escaped;
+    escaped.reserve(value.size());
+    for (const unsigned char ch : value) {
+        switch (ch) {
+        case '"':
+            escaped += "\\\"";
+            break;
+        case '\\':
+            escaped += "\\\\";
+            break;
+        case '\b':
+            escaped += "\\b";
+            break;
+        case '\f':
+            escaped += "\\f";
+            break;
+        case '\n':
+            escaped += "\\n";
+            break;
+        case '\r':
+            escaped += "\\r";
+            break;
+        case '\t':
+            escaped += "\\t";
+            break;
+        default:
+            if (ch <= 0x1f) {
+                escaped += "\\u00";
+                escaped.push_back(HEX[(ch >> 4) & 0x0f]);
+                escaped.push_back(HEX[ch & 0x0f]);
+            } else {
+                escaped.push_back(static_cast<char>(ch));
+            }
+        }
+    }
+    return escaped;
+}
+
+std::string MakeFilesJson(const std::vector<FileListItem>& files) {
+    std::string json = "{\"files\":[";
+    bool first = true;
+    for (const auto& file_item : files) {
+        if (!first) {
+            json.push_back(',');
+        }
+        first = false;
+        json += "{\"file_id\":" + std::to_string(file_item.file_id) +
+                ",\"file_name\":\"" + JsonEscape(file_item.file_name) +
+                "\",\"file_size\":" + std::to_string(file_item.file_size) +
+                "}";
+    }
+    json += "]}";
+    return json;
+}
+
+std::string MakeSharesJson(const std::vector<ShareListItem>& shares) {
+    std::string json = "{\"shares\":[";
+    bool first = true;
+    for (const auto& share_item : shares) {
+        if (!first) {
+            json.push_back(',');
+        }
+        first = false;
+        json += "{\"file_name\":\"" + JsonEscape(share_item.file_name) +
+                "\",\"share_token\":\"" +
+                JsonEscape(share_item.share_token) + "\",\"has_code\":" +
+                (share_item.has_code ? "true" : "false") +
+                ",\"expire_time\":";
+        if (share_item.expire_time) {
+            json += "\"" + JsonEscape(*share_item.expire_time) + "\"";
+        } else {
+            json += "null";
+        }
+        json += ",\"created_at\":\"" + JsonEscape(share_item.created_at) +
+                "\"}";
+    }
+    json += "]}";
+    return json;
+}
+
+std::optional<std::uint64_t> ParseFileId(std::string_view value) {
+    if (value.empty()) {
+        return std::nullopt;
+    }
+    std::uint64_t file_id = 0;
+    const auto [end, error] =
+        std::from_chars(value.data(), value.data() + value.size(), file_id);
+    if (error != std::errc{} || end != value.data() + value.size() ||
+        file_id == 0) {
+        return std::nullopt;
+    }
+    return file_id;
+}
+}
+
  bool HttpConn::isET;
  const char* HttpConn::srcDir;
  std::atomic<int> HttpConn::userCount;
@@ -202,6 +304,17 @@ ProcessResult HttpConn::process(){
                }
             break;
         }
+        case RouteType::FileList:
+        case RouteType::FileDelete:
+        case RouteType::ShareList:
+            if (request_.route() == RouteType::FileList) {
+                sta = actual_ProcessResult::FileList;
+            } else if (request_.route() == RouteType::FileDelete) {
+                sta = actual_ProcessResult::FileDelete;
+            } else {
+                sta = actual_ProcessResult::ShareList;
+            }
+            return ProcessResult::CloudData;
         case RouteType::Normal:
            // 普通静态资源,sta并未在init中重置
             sta={};
@@ -253,6 +366,8 @@ ProcessResult HttpConn::process(){
            path="/share_login.html";
             break;
         case responseResult::ShareDownload:
+            break;
+        case responseResult::Json:
             break;
        case responseResult::PayloadTooLarge:
            code=413;
@@ -480,12 +595,12 @@ DownloadResult HttpConn::handle_down(){
      if (tmp==DownloadResult::Error) {
         
         makeResponse(responseResult::ServerError);
-         sta=actual_ProcessResult::responseOnly;
+         sta=actual_ProcessResult::ServerError;
         //needwrite代表等待缓冲区，其他的直接写
         return  DownloadResult::Error;
      }else if (tmp==DownloadResult::RangeError) {
          makeResponse(responseResult::RangeError);
-         sta=actual_ProcessResult::responseOnly;
+         sta=actual_ProcessResult::RangeError;
          //必须切换，不然在onwrite中还是会调用doanload
          return  DownloadResult::RangeError;
      }
@@ -503,9 +618,8 @@ DownloadResult HttpConn::handle_down(){
     return  tmp;
 }
 
-
-bool HttpConn::handle_share(){
-    switch (sta) {
+bool HttpConn::handle_route(){
+     switch (sta) {
        case actual_ProcessResult::ShareCreate:
                     return handle_ShareCreate();
        case actual_ProcessResult::ShareAccess:
@@ -516,17 +630,40 @@ bool HttpConn::handle_share(){
                     return handle_ShareDownload();
         case actual_ProcessResult::ShareLogin:
                     return handle_ShareLogin();
-    }            
+        case actual_ProcessResult::FileList:
+                     return handle_FileList();
+        case actual_ProcessResult::FileDelete:
+                    return handle_FileDelete();
+        case actual_ProcessResult::ShareList:
+                    return handle_ShareList();
+        }  
     return false;
 }
+// bool HttpConn::handle_share(){
+//     switch (sta) {
+//        case actual_ProcessResult::ShareCreate:
+//                     return handle_ShareCreate();
+//        case actual_ProcessResult::ShareAccess:
+//                     return handle_ShareAccess();
+//        case actual_ProcessResult::ShareVerify:
+//                     return handle_ShareVerify();
+//        case actual_ProcessResult::ShareDownload:
+//                     return handle_ShareDownload();
+//         case actual_ProcessResult::ShareLogin:
+//                     return handle_ShareLogin();
+//     }            
+//     return false;
+// }
 bool HttpConn::handle_ShareCreate(){
     size_t user_id=0;
     if (!versityToken(user_id)) {
+         sta=actual_ProcessResult::Unauthorized;
         return false;
     }
    auto res=std::move( File_shared::Instance()->share_file(request_.GetPost("code"),
                       user_id, request_.GetPost("filename"),request_.GetPost("expire_time")));
         if (!res) {
+             sta=actual_ProcessResult::ServerError;
            return false;
         }
         response_.set_filed("share_token", res.value().first);
@@ -542,6 +679,7 @@ bool HttpConn::handle_ShareAccess(){
          response_.set_filed("has_code", res);
          return true;
      }
+      sta=actual_ProcessResult::ServerError;
      return false;
 }
 bool HttpConn::handle_ShareVerify(){
@@ -556,6 +694,7 @@ bool HttpConn::handle_ShareDownload(){
     size_t file_id=0;
     if ( File_shared::Instance()->versity_doenload( file_id,auth_hash)) {
          if (!d_file.share_init(file_id)) {
+            sta=actual_ProcessResult::ServerError;
               return false;
          }
          d_file.inited=true;
@@ -564,6 +703,64 @@ bool HttpConn::handle_ShareDownload(){
     }
     return false;
 }
+
+bool HttpConn::handle_FileList() {
+     size_t cloud_user_id_=0;
+      if (!versityToken(cloud_user_id_)) {
+       sta=actual_ProcessResult::Unauthorized;
+       return false;
+     }
+    auto files = file.list_files(cloud_user_id_);
+    if (!files) {
+        sta=actual_ProcessResult::ServerError;
+        return false;
+    }
+    response_.set_filed("body", MakeFilesJson(*files));
+    return true;
+}
+
+bool HttpConn::handle_FileDelete() {
+    size_t cloud_user_id_=0;
+     if (!versityToken(cloud_user_id_)) {
+       sta=actual_ProcessResult::Unauthorized;
+       return false;
+     }
+    const auto file_id = ParseFileId(request_.GetPost("file_id"));
+    if (!file_id || !file.delete_file(cloud_user_id_, *file_id)) {
+         sta=actual_ProcessResult::ServerError;
+        return false;
+    }
+    response_.set_filed("body", "{\"ok\":true}");
+    return true;
+}
+
+bool HttpConn::handle_ShareList() {
+     size_t cloud_user_id_=0;
+     if (!versityToken(cloud_user_id_)) {
+       sta=actual_ProcessResult::Unauthorized;
+       return false;
+     }
+    auto shares = File_shared::Instance()->list_shares(cloud_user_id_);
+    if (!shares) {
+         sta=actual_ProcessResult::ServerError;
+        return false;
+    }
+    response_.set_filed("body", MakeSharesJson(*shares));
+    return true;
+}
+
+// bool HttpConn::handle_CloudData() {
+//     switch (sta) {
+//     case actual_ProcessResult::FileList:
+//         return handle_FileList();
+//     case actual_ProcessResult::FileDelete:
+//         return handle_FileDelete();
+//     case actual_ProcessResult::ShareList:
+//         return handle_ShareList();
+//     default:
+//         return false;
+//     }
+// }
 
 responseResult HttpConn::status_route(actual_ProcessResult& sta){
        switch (sta) {
@@ -583,7 +780,17 @@ responseResult HttpConn::status_route(actual_ProcessResult& sta){
                 return responseResult::ShareDownload;
            case actual_ProcessResult::ShareLogin:
                 return responseResult::ShareLogin;
+           case actual_ProcessResult::FileList:
+           case actual_ProcessResult::FileDelete:
+           case actual_ProcessResult::ShareList:
+                return responseResult::Json;
+          // case actual_ProcessResult::responseOnly:不参与这个，它只做
+           case actual_ProcessResult::ServerError:
+                return responseResult::ServerError;
+             case actual_ProcessResult::Unauthorized:
+                return  responseResult::Unauthorized;
        }
+       return responseResult::ServerError;
 }
  actual_ProcessResult HttpConn::get_sta(){
      return sta;

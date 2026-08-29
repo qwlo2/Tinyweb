@@ -36,7 +36,10 @@
         ShareVerify,//验证提取码
         ShareDownload,
         ShareLogin,
-        CloudAccess
+        CloudAccess,
+        FileList,
+        FileDelete,
+        ShareList
 };
 //让route逻辑更清晰
 enum class HttpMethod {

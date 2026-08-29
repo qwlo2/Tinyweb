@@ -21,7 +21,8 @@ enum class responseResult{
          ShareAccess,
         ShareVerify,//验证提取码
         ShareDownload,
-        ShareLogin
+        ShareLogin,
+        Json
 };
 class HttpResponse {
 public:
