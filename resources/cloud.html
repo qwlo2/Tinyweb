@@ -19,6 +19,7 @@
             --cloud-line: #e5eaf2;
             --cloud-bg: #f3f6fb;
             --cloud-success: #147d66;
+            --cloud-danger: #c0392b;
         }
 
         [hidden] { display: none !important; }
@@ -29,58 +30,113 @@
         .cloud-page .custom-navbar .nav li a:hover,
         .cloud-page .custom-navbar .nav li.active a { color: var(--cloud-blue); }
 
-        .cloud-shell { width: min(100% - 40px, 1080px); margin: 0 auto; padding: 128px 0 64px; }
-        .cloud-panel { padding: 42px; border: 1px solid rgba(35, 55, 89, 0.07); border-radius: 20px; background: #fff; box-shadow: 0 18px 48px rgba(38, 58, 96, 0.09); }
-        .cloud-intro { margin-bottom: 32px; display: flex; align-items: center; gap: 18px; }
-        .cloud-intro__icon { width: 54px; height: 54px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 15px; background: #e7efff; color: var(--cloud-blue); font-size: 24px; }
-        .cloud-intro h1 { margin: 0 0 6px; font-size: 30px; }
-        .cloud-intro p { margin: 0; color: var(--cloud-muted); line-height: 1.7; }
-        .cloud-workspace { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 24px; align-items: start; }
-        .cloud-section { padding: 28px; border: 1px solid var(--cloud-line); border-radius: 16px; background: #fbfcfe; }
-        .cloud-section__heading { margin-bottom: 24px; display: flex; align-items: flex-start; gap: 13px; }
-        .cloud-section__mark { width: 38px; height: 38px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 11px; background: #e9f0ff; color: var(--cloud-blue); }
-        .cloud-section h2 { margin: 0; font-size: 20px; }
-        .cloud-section__heading p { margin: 5px 0 0; color: var(--cloud-muted); font-size: 13px; line-height: 1.55; }
-        .cloud-field { margin-bottom: 18px; }
-        .cloud-field label { margin-bottom: 8px; display: block; color: var(--cloud-text); font-size: 14px; font-weight: 600; }
+        .cloud-shell { width: min(100% - 40px, 1180px); margin: 0 auto; padding: 116px 0 56px; }
+        .cloud-panel { overflow: hidden; border: 1px solid rgba(35, 55, 89, 0.07); border-radius: 18px; background: #fff; box-shadow: 0 18px 48px rgba(38, 58, 96, 0.09); }
+        .cloud-header { padding: 30px 34px 22px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+        .cloud-intro { min-width: 0; display: flex; align-items: center; gap: 16px; }
+        .cloud-intro__icon { width: 50px; height: 50px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 14px; background: #e7efff; color: var(--cloud-blue); font-size: 22px; }
+        .cloud-intro h1 { margin: 0 0 5px; font-size: 27px; }
+        .cloud-intro p { margin: 0; color: var(--cloud-muted); font-size: 14px; line-height: 1.6; }
+        .cloud-primary-button,
+        .cloud-secondary-button { min-height: 42px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 9px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; white-space: nowrap; transition: 0.2s ease; }
+        .cloud-primary-button { border: 1px solid var(--cloud-blue); background: var(--cloud-blue); color: #fff; box-shadow: 0 7px 18px rgba(47, 111, 237, 0.2); }
+        .cloud-primary-button:hover,
+        .cloud-primary-button:focus-visible { border-color: var(--cloud-blue-dark); background: var(--cloud-blue-dark); color: #fff; }
+        .cloud-secondary-button { border: 1px solid #d8e0ed; background: #fff; color: var(--cloud-text); }
+        .cloud-secondary-button:hover,
+        .cloud-secondary-button:focus-visible { border-color: #b9c8df; background: #f7f9fc; color: var(--cloud-blue-dark); }
+        .cloud-primary-button:disabled,
+        .cloud-secondary-button:disabled { cursor: wait; opacity: 0.65; }
+        .cloud-upload-form { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+
+        .cloud-tabs { padding: 0 34px; display: flex; gap: 30px; border-bottom: 1px solid var(--cloud-line); }
+        .cloud-tab { position: relative; padding: 15px 2px 14px; border: 0; background: transparent; color: var(--cloud-muted); cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 600; }
+        .cloud-tab::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 3px; border-radius: 3px 3px 0 0; background: transparent; }
+        .cloud-tab:hover,
+        .cloud-tab:focus-visible,
+        .cloud-tab.is-active { color: var(--cloud-blue); }
+        .cloud-tab.is-active::after { background: var(--cloud-blue); }
+
+        .cloud-tab-panel { padding: 24px 34px 34px; }
+        .cloud-toolbar { min-height: 44px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+        .cloud-count { margin: 0; color: var(--cloud-muted); font-size: 14px; }
+        .cloud-table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--cloud-line); border-radius: 12px; background: #fff; -webkit-overflow-scrolling: touch; }
+        .cloud-table { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; }
+        .cloud-file-table { min-width: 700px; }
+        .cloud-share-table { min-width: 1000px; }
+        .cloud-table th { padding: 13px 16px; border-bottom: 1px solid var(--cloud-line); background: #f7f9fc; color: #56637a; font-size: 13px; font-weight: 600; text-align: left; }
+        .cloud-table td { padding: 15px 16px; border-bottom: 1px solid #edf0f5; color: var(--cloud-text); font-size: 14px; vertical-align: middle; }
+        .cloud-table tbody tr:last-child td { border-bottom: 0; }
+        .cloud-table tbody tr:hover td { background: #fbfcff; }
+        .cloud-table__name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .cloud-table__name-icon { width: 32px; height: 32px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 8px; background: #edf3ff; color: var(--cloud-blue); }
+        .cloud-table__name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cloud-table__muted { color: var(--cloud-muted); }
+        .cloud-table__link { color: var(--cloud-blue); text-decoration: none; word-break: break-all; }
+        .cloud-table__link:hover { color: var(--cloud-blue-dark); text-decoration: underline; }
+        .cloud-actions { display: flex; align-items: center; gap: 7px; }
+        .cloud-icon-button { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #dce3ee; border-radius: 8px; background: #fff; color: #61708a; cursor: pointer; text-decoration: none; transition: 0.2s ease; }
+        .cloud-icon-button:hover,
+        .cloud-icon-button:focus-visible { border-color: #bfd0ed; background: #eef4ff; color: var(--cloud-blue); text-decoration: none; }
+        .cloud-icon-button--danger:hover,
+        .cloud-icon-button--danger:focus-visible { border-color: #f0c9c4; background: #fff1ef; color: var(--cloud-danger); }
+        .cloud-icon-button:disabled { cursor: wait; opacity: 0.5; }
+        .cloud-actions-column { width: 150px; }
+        .cloud-file-table th:last-child,
+        .cloud-file-table td:last-child { position: sticky; right: 0; z-index: 1; background: #fff; box-shadow: -8px 0 14px -14px rgba(23, 35, 61, 0.45); }
+        .cloud-file-table th:last-child { z-index: 2; background: #f7f9fc; }
+
+        .cloud-badge { padding: 5px 9px; display: inline-flex; align-items: center; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .cloud-badge--blue { background: #eaf1ff; color: var(--cloud-blue-dark); }
+        .cloud-badge--green { background: #eaf8f3; color: var(--cloud-success); }
+        .cloud-badge--gray { background: #f0f2f6; color: #647087; }
+        .cloud-list-state { min-height: 210px; padding: 38px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed #d6deea; border-radius: 12px; background: #fbfcfe; color: var(--cloud-muted); text-align: center; line-height: 1.7; }
+        .cloud-list-state i { margin-bottom: 13px; color: #9aabc4; font-size: 28px; }
+        .cloud-list-state--error { border-color: #f0d0cc; background: #fff8f7; color: #a83a30; }
+        .cloud-notice { margin-bottom: 16px; padding: 11px 14px; border: 1px solid transparent; border-radius: 9px; font-size: 13px; line-height: 1.55; }
+        .cloud-notice--success { border-color: #bfe8dc; background: #edf9f5; color: var(--cloud-success); }
+        .cloud-notice--error { border-color: #ffd6d2; background: #fff2f2; color: #b42318; }
+
+        .cloud-modal { position: fixed; z-index: 1100; inset: 0; padding: 24px; display: flex; align-items: center; justify-content: center; background: rgba(18, 29, 49, 0.5); }
+        .cloud-modal__dialog { width: min(100%, 540px); max-height: calc(100vh - 48px); overflow-y: auto; border-radius: 16px; background: #fff; box-shadow: 0 24px 70px rgba(18, 29, 49, 0.28); }
+        .cloud-modal__header { padding: 21px 24px 17px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--cloud-line); }
+        .cloud-modal__header h2 { margin: 0; font-size: 20px; }
+        .cloud-modal__close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--cloud-muted); cursor: pointer; font-size: 18px; }
+        .cloud-modal__close:hover { background: #f1f4f8; color: var(--cloud-text); }
+        .cloud-modal__body { padding: 22px 24px 24px; }
+        .cloud-field { margin-bottom: 17px; }
+        .cloud-field label { margin-bottom: 7px; display: block; font-size: 14px; font-weight: 600; }
         .cloud-input,
-        .cloud-select,
-        .cloud-file-input { width: 100%; min-height: 48px; border: 1px solid #d9e0eb; border-radius: 10px; outline: none; background: #fff; color: var(--cloud-text); font: inherit; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-        .cloud-input,
-        .cloud-select { padding: 0 14px; }
-        .cloud-file-input { padding: 8px; color: var(--cloud-muted); font-size: 14px; }
-        .cloud-file-input::file-selector-button { height: 30px; margin-right: 12px; padding: 0 13px; border: 0; border-radius: 7px; background: #edf3ff; color: var(--cloud-blue-dark); cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; }
+        .cloud-select { width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid #d9e0eb; border-radius: 9px; outline: none; background: #fff; color: var(--cloud-text); font: inherit; }
         .cloud-input:focus,
-        .cloud-select:focus,
-        .cloud-file-input:focus { border-color: var(--cloud-blue); box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12); }
-        .cloud-button { width: 100%; min-height: 48px; border: 0; border-radius: 10px; background: var(--cloud-blue); color: #fff; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 600; box-shadow: 0 8px 20px rgba(47, 111, 237, 0.2); transition: background 0.2s ease, opacity 0.2s ease; }
-        .cloud-button:hover,
-        .cloud-button:focus-visible { background: var(--cloud-blue-dark); }
-        .cloud-button:disabled { cursor: wait; opacity: 0.65; }
-        .cloud-note { margin: 16px 0 0; color: var(--cloud-muted); font-size: 12px; line-height: 1.6; }
-        .cloud-status { margin-top: 20px; padding: 13px 15px; border: 1px solid transparent; border-radius: 10px; font-size: 13px; line-height: 1.65; }
-        .cloud-status--success { border-color: #bfe8dc; background: #edf9f5; color: var(--cloud-success); }
-        .cloud-status--warning { border-color: #f2d49d; background: #fff8e9; color: #8a5a08; }
-        .cloud-status--error { border-color: #ffd6d2; background: #fff2f2; color: #b42318; }
-        .cloud-result { margin-top: 18px; padding: 20px; border: 1px solid #dce5f4; border-radius: 12px; background: #fff; }
-        .cloud-result h3 { margin: 0 0 17px; font-size: 16px; }
-        .cloud-result label { margin-bottom: 8px; display: block; color: var(--cloud-muted); font-size: 13px; }
-        .cloud-result__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
-        .cloud-result__link { min-height: 48px; padding: 0 17px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: var(--cloud-blue); color: #fff !important; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
-        .cloud-result__code { margin-top: 16px; padding-top: 16px; display: flex; justify-content: space-between; gap: 20px; border-top: 1px solid var(--cloud-line); font-size: 14px; }
-        .cloud-result__code span { color: var(--cloud-muted); }
+        .cloud-select:focus { border-color: var(--cloud-blue); box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12); }
+        .cloud-modal__actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: 10px; }
+        .cloud-create-result { margin-top: 19px; padding: 16px; border: 1px solid #cfe0fa; border-radius: 10px; background: #f7faff; }
+        .cloud-create-result h3 { margin: 0 0 13px; font-size: 15px; }
+        .cloud-create-result__link { margin-bottom: 12px; display: block; color: var(--cloud-blue); overflow-wrap: anywhere; }
+        .cloud-create-result__code { display: flex; justify-content: space-between; gap: 20px; color: var(--cloud-muted); font-size: 13px; }
+        .cloud-create-result__code strong { color: var(--cloud-text); }
+        body.cloud-modal-open { overflow: hidden; }
 
         @media (max-width: 780px) {
-            .cloud-shell { width: min(100% - 28px, 1080px); padding: 100px 0 28px; }
-            .cloud-panel { padding: 28px 20px; border-radius: 16px; }
-            .cloud-workspace { grid-template-columns: 1fr; }
-            .cloud-section { padding: 24px 20px; }
+            .cloud-shell { width: min(100% - 24px, 1180px); padding: 94px 0 28px; }
+            .cloud-header { padding: 24px 20px 19px; align-items: flex-start; }
+            .cloud-tabs { padding: 0 20px; }
+            .cloud-tab-panel { padding: 20px; }
+            .cloud-table-scroll { border-radius: 10px; }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 520px) {
+            .cloud-header { flex-direction: column; }
+            .cloud-header > .cloud-primary-button { width: 100%; }
             .cloud-intro { align-items: flex-start; }
-            .cloud-intro h1 { font-size: 25px; }
-            .cloud-result__row { grid-template-columns: 1fr; }
+            .cloud-intro h1 { font-size: 24px; }
+            .cloud-toolbar { align-items: flex-start; flex-direction: column; }
+            .cloud-toolbar .cloud-secondary-button { width: 100%; }
+            .cloud-modal { padding: 12px; }
+            .cloud-modal__dialog { max-height: calc(100vh - 24px); }
+            .cloud-modal__header,
+            .cloud-modal__body { padding-right: 18px; padding-left: 18px; }
         }
     </style>
 </head>
@@ -112,84 +168,152 @@
 
     <main class="cloud-shell">
         <section class="cloud-panel" aria-labelledby="cloud-title">
-            <div class="cloud-intro">
-                <div class="cloud-intro__icon" aria-hidden="true"><i class="fa fa-cloud"></i></div>
-                <div>
-                    <h1 id="cloud-title">我的云盘</h1>
-                    <p>上传文件到个人空间，或为已有文件创建分享链接。</p>
+            <header class="cloud-header">
+                <div class="cloud-intro">
+                    <div class="cloud-intro__icon" aria-hidden="true"><i class="fa fa-cloud"></i></div>
+                    <div>
+                        <h1 id="cloud-title">我的云盘</h1>
+                        <p>管理已上传的文件，并随时查看分享记录。</p>
+                    </div>
                 </div>
+                <button id="top-upload-button" class="cloud-primary-button" type="button">
+                    <i class="fa fa-upload" aria-hidden="true"></i>
+                    上传文件
+                </button>
+            </header>
+
+            <form id="upload-form" class="cloud-upload-form" action="/file" method="post" enctype="multipart/form-data">
+                <label for="upload-file">选择要上传的文件</label>
+                <input id="upload-file" type="file" name="file" required>
+            </form>
+
+            <div class="cloud-tabs" role="tablist" aria-label="云盘内容">
+                <button id="files-tab" class="cloud-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="files-panel">
+                    我的文件
+                </button>
+                <button id="shares-tab" class="cloud-tab" type="button" role="tab" aria-selected="false" aria-controls="shares-panel">
+                    我的分享
+                </button>
             </div>
 
-            <div class="cloud-workspace">
-                <section class="cloud-section" aria-labelledby="upload-title">
-                    <div class="cloud-section__heading">
-                        <div class="cloud-section__mark" aria-hidden="true"><i class="fa fa-upload"></i></div>
-                        <div>
-                            <h2 id="upload-title">上传文件</h2>
-                            <p>选择本地文件并保存到你的云盘</p>
-                        </div>
-                    </div>
+            <section id="files-panel" class="cloud-tab-panel" role="tabpanel" aria-labelledby="files-tab">
+                <div class="cloud-toolbar">
+                    <p id="file-count" class="cloud-count">正在统计文件…</p>
+                </div>
+                <div id="file-notice" class="cloud-notice" role="status" aria-live="polite" hidden></div>
+                <div id="file-state" class="cloud-list-state" role="status" aria-live="polite">
+                    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                    <span>正在加载文件列表…</span>
+                </div>
+                <div id="file-table-wrap" class="cloud-table-scroll" hidden>
+                    <table class="cloud-table cloud-file-table">
+                        <colgroup>
+                            <col style="width: 42%">
+                            <col style="width: 18%">
+                            <col style="width: 18%">
+                            <col style="width: 22%">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th scope="col">文件名</th>
+                                <th scope="col">大小</th>
+                                <th scope="col">类型</th>
+                                <th class="cloud-actions-column" scope="col">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="file-table-body"></tbody>
+                    </table>
+                </div>
+            </section>
 
-                    <form action="/file" method="post" enctype="multipart/form-data">
-                        <div class="cloud-field">
-                            <label for="upload-file">选择文件</label>
-                            <input id="upload-file" class="cloud-file-input" type="file" name="file" required>
-                        </div>
-                        <button class="cloud-button" type="submit">上传文件</button>
-                    </form>
-                    <p class="cloud-note">上传完成后，可使用右侧表单创建分享。</p>
-                </section>
-
-                <section class="cloud-section" aria-labelledby="share-create-title">
-                    <div class="cloud-section__heading">
-                        <div class="cloud-section__mark" aria-hidden="true"><i class="fa fa-share-alt"></i></div>
-                        <div>
-                            <h2 id="share-create-title">创建分享</h2>
-                            <p>为云盘中的文件设置提取码和有效期</p>
-                        </div>
-                    </div>
-
-                    <form id="share-create-form" action="/share" method="post">
-                        <div class="cloud-field">
-                            <label for="share-filename">文件名</label>
-                            <input id="share-filename" class="cloud-input" name="filename" type="text" placeholder="请输入云盘中的完整文件名" required>
-                        </div>
-                        <div class="cloud-field">
-                            <label for="share-code-option">提取码</label>
-                            <select id="share-code-option" class="cloud-select" name="code">
-                                <option value="false">无提取码</option>
-                                <option value="true">生成提取码</option>
-                            </select>
-                        </div>
-                        <div class="cloud-field">
-                            <label for="share-expire-time">有效期</label>
-                            <select id="share-expire-time" class="cloud-select" name="expire_time">
-                                <option value="1">1 天</option>
-                                <option value="7">7 天</option>
-                                <option value="30">30 天</option>
-                                <option value="null">永久</option>
-                            </select>
-                        </div>
-                        <button id="share-submit-button" class="cloud-button" type="submit">创建分享</button>
-                    </form>
-
-                    <div id="share-create-status" class="cloud-status" role="status" aria-live="polite" hidden></div>
-                    <section id="share-create-result" class="cloud-result" aria-labelledby="share-result-title" hidden>
-                        <h3 id="share-result-title">分享结果</h3>
-                        <label for="share-result-url">分享链接</label>
-                        <div class="cloud-result__row">
-                            <input id="share-result-url" class="cloud-input" type="text" readonly>
-                            <a id="share-open-link" class="cloud-result__link" target="_blank" rel="noopener">打开分享页面</a>
-                        </div>
-                        <div class="cloud-result__code">
-                            <span>提取码</span>
-                            <strong id="share-result-code">无提取码</strong>
-                        </div>
-                    </section>
-                </section>
-            </div>
+            <section id="shares-panel" class="cloud-tab-panel" role="tabpanel" aria-labelledby="shares-tab" hidden>
+                <div class="cloud-toolbar">
+                    <p id="share-count" class="cloud-count">分享列表尚未加载</p>
+                    <button id="open-share-modal" class="cloud-secondary-button" type="button">
+                        <i class="fa fa-share-alt" aria-hidden="true"></i>
+                        创建分享
+                    </button>
+                </div>
+                <div id="share-state" class="cloud-list-state" role="status" aria-live="polite">
+                    <i class="fa fa-folder-open-o" aria-hidden="true"></i>
+                    <span>切换到此标签后加载分享记录。</span>
+                </div>
+                <div id="share-table-wrap" class="cloud-table-scroll" hidden>
+                    <table class="cloud-table cloud-share-table">
+                        <colgroup>
+                            <col style="width: 21%">
+                            <col style="width: 12%">
+                            <col style="width: 12%">
+                            <col style="width: 17%">
+                            <col style="width: 17%">
+                            <col style="width: 21%">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th scope="col">文件</th>
+                                <th scope="col">提取码</th>
+                                <th scope="col">有效期</th>
+                                <th scope="col">到期时间</th>
+                                <th scope="col">分享时间</th>
+                                <th scope="col">分享链接</th>
+                            </tr>
+                        </thead>
+                        <tbody id="share-table-body"></tbody>
+                    </table>
+                </div>
+            </section>
         </section>
     </main>
+
+    <div id="share-modal" class="cloud-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title" aria-hidden="true" hidden>
+        <div class="cloud-modal__dialog">
+            <header class="cloud-modal__header">
+                <h2 id="share-modal-title">创建文件分享</h2>
+                <button id="close-share-modal" class="cloud-modal__close" type="button" aria-label="关闭弹窗">
+                    <i class="fa fa-times" aria-hidden="true"></i>
+                </button>
+            </header>
+            <div class="cloud-modal__body">
+                <form id="share-create-form" action="/share" method="post">
+                    <div class="cloud-field">
+                        <label for="share-filename">文件名</label>
+                        <input id="share-filename" class="cloud-input" name="filename" type="text" list="cloud-file-options" placeholder="请输入云盘中的完整文件名" autocomplete="off" required>
+                        <datalist id="cloud-file-options"></datalist>
+                    </div>
+                    <div class="cloud-field">
+                        <label for="share-code-option">是否生成提取码</label>
+                        <select id="share-code-option" class="cloud-select" name="code">
+                            <option value="false">无提取码</option>
+                            <option value="true">生成提取码</option>
+                        </select>
+                    </div>
+                    <div class="cloud-field">
+                        <label for="share-expire-time">有效期</label>
+                        <select id="share-expire-time" class="cloud-select" name="expire_time">
+                            <option value="1">1 天</option>
+                            <option value="7">7 天</option>
+                            <option value="30">30 天</option>
+                            <option value="null">永久</option>
+                        </select>
+                    </div>
+                    <div class="cloud-modal__actions">
+                        <button id="cancel-share-create" class="cloud-secondary-button" type="button">取消</button>
+                        <button id="share-submit-button" class="cloud-primary-button" type="submit">创建分享</button>
+                    </div>
+                </form>
+
+                <div id="share-create-status" class="cloud-notice" role="status" aria-live="polite" hidden></div>
+                <section id="share-create-result" class="cloud-create-result" aria-labelledby="share-result-title" hidden>
+                    <h3 id="share-result-title">分享创建成功</h3>
+                    <a id="share-open-link" class="cloud-create-result__link" target="_blank" rel="noopener"></a>
+                    <div class="cloud-create-result__code">
+                        <span>提取码</span>
+                        <strong id="share-result-code">无提取码</strong>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
 
     <script src="/js/jquery.js"></script>
     <script src="/js/bootstrap.min.js"></script>
@@ -202,42 +326,424 @@
         (() => {
             "use strict";
 
-            const form = document.getElementById("share-create-form");
-            const submitButton = document.getElementById("share-submit-button");
-            const status = document.getElementById("share-create-status");
-            const result = document.getElementById("share-create-result");
-            const resultUrl = document.getElementById("share-result-url");
-            const resultCode = document.getElementById("share-result-code");
-            const openLink = document.getElementById("share-open-link");
-            const tokenPattern = /^[A-Za-z0-9_-]{8,64}$/;
+            const uploadForm = document.getElementById("upload-form");
+            const uploadInput = document.getElementById("upload-file");
+            const topUploadButton = document.getElementById("top-upload-button");
+            const filesTab = document.getElementById("files-tab");
+            const sharesTab = document.getElementById("shares-tab");
+            const filesPanel = document.getElementById("files-panel");
+            const sharesPanel = document.getElementById("shares-panel");
+            const fileCount = document.getElementById("file-count");
+            const fileState = document.getElementById("file-state");
+            const fileNotice = document.getElementById("file-notice");
+            const fileTableWrap = document.getElementById("file-table-wrap");
+            const fileTableBody = document.getElementById("file-table-body");
+            const fileOptions = document.getElementById("cloud-file-options");
+            const shareCount = document.getElementById("share-count");
+            const shareState = document.getElementById("share-state");
+            const shareTableWrap = document.getElementById("share-table-wrap");
+            const shareTableBody = document.getElementById("share-table-body");
+            const openShareModalButton = document.getElementById("open-share-modal");
+            const shareModal = document.getElementById("share-modal");
+            const closeShareModalButton = document.getElementById("close-share-modal");
+            const cancelShareCreateButton = document.getElementById("cancel-share-create");
+            const shareForm = document.getElementById("share-create-form");
+            const shareFilename = document.getElementById("share-filename");
+            const shareCodeOption = document.getElementById("share-code-option");
+            const shareExpireTime = document.getElementById("share-expire-time");
+            const shareSubmitButton = document.getElementById("share-submit-button");
+            const shareCreateStatus = document.getElementById("share-create-status");
+            const shareCreateResult = document.getElementById("share-create-result");
+            const shareOpenLink = document.getElementById("share-open-link");
+            const shareResultCode = document.getElementById("share-result-code");
 
-            const clearResult = () => {
-                status.hidden = true;
-                status.textContent = "";
-                status.className = "cloud-status";
-                result.hidden = true;
-                resultUrl.value = "";
-                resultCode.textContent = "无提取码";
-                openLink.removeAttribute("href");
+            let sharesLoaded = false;
+            let sharesLoading = false;
+
+            const redirectIfUnauthorized = (response) => {
+                if (response.status !== 401) {
+                    return false;
+                }
+                window.location.href = "/login.html";
+                return true;
             };
 
-            const showStatus = (message, type) => {
-                status.textContent = message;
-                status.className = `cloud-status cloud-status--${type}`;
-                status.hidden = false;
+            const setListState = (element, iconClass, message, isError = false) => {
+                const icon = document.createElement("i");
+                const text = document.createElement("span");
+                icon.className = iconClass;
+                icon.setAttribute("aria-hidden", "true");
+                text.textContent = message;
+                element.className = isError
+                    ? "cloud-list-state cloud-list-state--error"
+                    : "cloud-list-state";
+                element.replaceChildren(icon, text);
+                element.hidden = false;
             };
 
-            form.addEventListener("submit", async (event) => {
+            const showNotice = (element, message, type) => {
+                element.textContent = message;
+                element.className = `cloud-notice cloud-notice--${type}`;
+                element.hidden = false;
+            };
+
+            const hideNotice = (element) => {
+                element.textContent = "";
+                element.className = "cloud-notice";
+                element.hidden = true;
+            };
+
+            const formatFileSize = (value) => {
+                let size = Number(value);
+                if (!Number.isFinite(size) || size < 0) {
+                    return "—";
+                }
+                const units = ["B", "KB", "MB", "GB", "TB"];
+                let unitIndex = 0;
+                while (size >= 1024 && unitIndex < units.length - 1) {
+                    size /= 1024;
+                    unitIndex += 1;
+                }
+                const precision = unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
+                return `${Number(size.toFixed(precision))} ${units[unitIndex]}`;
+            };
+
+            const getFileType = (fileName) => {
+                const name = String(fileName);
+                const dotIndex = name.lastIndexOf(".");
+                if (dotIndex <= 0 || dotIndex === name.length - 1) {
+                    return "文件";
+                }
+                return name.slice(dotIndex + 1).toUpperCase();
+            };
+
+            const chooseUploadFile = () => {
+                uploadInput.click();
+            };
+
+            const createFileNameCell = (fileName) => {
+                const cell = document.createElement("td");
+                const wrapper = document.createElement("div");
+                const iconWrapper = document.createElement("span");
+                const icon = document.createElement("i");
+                const name = document.createElement("span");
+                wrapper.className = "cloud-table__name";
+                iconWrapper.className = "cloud-table__name-icon";
+                icon.className = "fa fa-file-o";
+                icon.setAttribute("aria-hidden", "true");
+                name.className = "cloud-table__name-text";
+                name.textContent = fileName;
+                name.title = fileName;
+                iconWrapper.appendChild(icon);
+                wrapper.append(iconWrapper, name);
+                cell.appendChild(wrapper);
+                return cell;
+            };
+
+            const createTextCell = (value, muted = false) => {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                if (muted) {
+                    cell.className = "cloud-table__muted";
+                }
+                return cell;
+            };
+
+            const createBadgeCell = (text, badgeClass) => {
+                const cell = document.createElement("td");
+                const badge = document.createElement("span");
+                badge.className = `cloud-badge ${badgeClass}`;
+                badge.textContent = text;
+                cell.appendChild(badge);
+                return cell;
+            };
+
+            const createActionIcon = (iconClass) => {
+                const icon = document.createElement("i");
+                icon.className = iconClass;
+                icon.setAttribute("aria-hidden", "true");
+                return icon;
+            };
+
+            const updateFileOptions = (files) => {
+                const options = files.map((file) => {
+                    const option = document.createElement("option");
+                    option.value = String(file.file_name);
+                    return option;
+                });
+                fileOptions.replaceChildren(...options);
+            };
+
+            const deleteFile = async (file, button) => {
+                const fileName = String(file.file_name);
+                if (!window.confirm(`确定删除“${fileName}”吗？`)) {
+                    return;
+                }
+
+                hideNotice(fileNotice);
+                button.disabled = true;
+                try {
+                    const requestBody = new URLSearchParams({ file_id: file.file_id });
+                    const response = await fetch("/file/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: requestBody.toString(),
+                        credentials: "same-origin"
+                    });
+
+                    if (redirectIfUnauthorized(response)) {
+                        return;
+                    }
+                    if (!response.ok) {
+                        throw new Error("delete failed");
+                    }
+
+                    const result = await response.json();
+                    if (!result || result.ok !== true) {
+                        throw new Error("unexpected delete response");
+                    }
+
+                    await loadFiles();
+                    showNotice(fileNotice, "文件已删除，列表已更新。", "success");
+                } catch (error) {
+                    showNotice(fileNotice, "删除失败，请稍后重试。", "error");
+                } finally {
+                    button.disabled = false;
+                }
+            };
+
+            const renderFiles = (files) => {
+                const rows = files.map((file) => {
+                    const fileName = String(file.file_name);
+                    const row = document.createElement("tr");
+                    const actionCell = document.createElement("td");
+                    const actions = document.createElement("div");
+                    const uploadButton = document.createElement("button");
+                    const downloadLink = document.createElement("a");
+                    const deleteButton = document.createElement("button");
+
+                    actions.className = "cloud-actions";
+                    uploadButton.className = "cloud-icon-button";
+                    uploadButton.type = "button";
+                    uploadButton.title = "上传新文件";
+                    uploadButton.setAttribute("aria-label", "上传新文件");
+                    uploadButton.appendChild(createActionIcon("fa fa-upload"));
+                    uploadButton.addEventListener("click", chooseUploadFile);
+
+                    downloadLink.className = "cloud-icon-button";
+                    downloadLink.href = "/file/" + encodeURIComponent(fileName);
+                    downloadLink.title = `下载 ${fileName}`;
+                    downloadLink.setAttribute("aria-label", `下载 ${fileName}`);
+                    downloadLink.appendChild(createActionIcon("fa fa-download"));
+
+                    deleteButton.className = "cloud-icon-button cloud-icon-button--danger";
+                    deleteButton.type = "button";
+                    deleteButton.title = `删除 ${fileName}`;
+                    deleteButton.setAttribute("aria-label", `删除 ${fileName}`);
+                    deleteButton.appendChild(createActionIcon("fa fa-trash-o"));
+                    deleteButton.addEventListener("click", () => deleteFile(file, deleteButton));
+
+                    actions.append(uploadButton, downloadLink, deleteButton);
+                    actionCell.appendChild(actions);
+                    row.append(
+                        createFileNameCell(fileName),
+                        createTextCell(formatFileSize(file.file_size), true),
+                        createTextCell(getFileType(fileName), true),
+                        actionCell
+                    );
+                    return row;
+                });
+
+                fileTableBody.replaceChildren(...rows);
+                updateFileOptions(files);
+                fileCount.textContent = `共 ${files.length} 个文件`;
+                fileState.hidden = true;
+                fileTableWrap.hidden = false;
+            };
+
+            async function loadFiles() {
+                hideNotice(fileNotice);
+                fileCount.textContent = "正在统计文件…";
+                fileTableWrap.hidden = true;
+                setListState(fileState, "fa fa-spinner fa-spin", "正在加载文件列表…");
+
+                try {
+                    const response = await fetch("/file", {
+                        method: "GET",
+                        credentials: "same-origin"
+                    });
+                    if (redirectIfUnauthorized(response)) {
+                        return;
+                    }
+                    if (!response.ok) {
+                        throw new Error("file list failed");
+                    }
+
+                    const data = await response.json();
+                    if (!data || !Array.isArray(data.files)) {
+                        throw new Error("unexpected file response");
+                    }
+
+                    if (data.files.length === 0) {
+                        fileTableBody.replaceChildren();
+                        fileOptions.replaceChildren();
+                        fileCount.textContent = "共 0 个文件";
+                        setListState(fileState, "fa fa-folder-open-o", "云盘中还没有文件，点击上传文件开始使用。");
+                        return;
+                    }
+                    renderFiles(data.files);
+                } catch (error) {
+                    fileCount.textContent = "文件数量暂不可用";
+                    setListState(fileState, "fa fa-exclamation-circle", "文件列表加载失败，请稍后重试。", true);
+                }
+            }
+
+            const renderShares = (shares) => {
+                const rows = shares.map((share) => {
+                    const fileName = String(share.file_name);
+                    const token = String(share.share_token);
+                    const sharePath = "/share/" + encodeURIComponent(token);
+                    const row = document.createElement("tr");
+                    const linkCell = document.createElement("td");
+                    const link = document.createElement("a");
+                    const hasCode = share.has_code === true;
+                    const permanent = share.expire_time === null;
+
+                    link.className = "cloud-table__link";
+                    link.href = sharePath;
+                    link.target = "_blank";
+                    link.rel = "noopener";
+                    link.textContent = sharePath;
+                    linkCell.appendChild(link);
+
+                    row.append(
+                        createTextCell(fileName),
+                        createBadgeCell(hasCode ? "有提取码" : "无提取码", hasCode ? "cloud-badge--blue" : "cloud-badge--gray"),
+                        createBadgeCell(permanent ? "永久有效" : "限时有效", permanent ? "cloud-badge--green" : "cloud-badge--blue"),
+                        createTextCell(permanent ? "—" : String(share.expire_time), true),
+                        createTextCell(String(share.created_at), true),
+                        linkCell
+                    );
+                    return row;
+                });
+
+                shareTableBody.replaceChildren(...rows);
+                shareCount.textContent = `共 ${shares.length} 个分享`;
+                shareState.hidden = true;
+                shareTableWrap.hidden = false;
+            };
+
+            async function loadShares() {
+                if (sharesLoading) {
+                    return;
+                }
+                sharesLoading = true;
+                shareCount.textContent = "正在统计分享…";
+                shareTableWrap.hidden = true;
+                setListState(shareState, "fa fa-spinner fa-spin", "正在加载分享列表…");
+
+                try {
+                    const response = await fetch("/share", {
+                        method: "GET",
+                        credentials: "same-origin"
+                    });
+                    if (redirectIfUnauthorized(response)) {
+                        return;
+                    }
+                    if (!response.ok) {
+                        throw new Error("share list failed");
+                    }
+
+                    const data = await response.json();
+                    if (!data || !Array.isArray(data.shares)) {
+                        throw new Error("unexpected share response");
+                    }
+
+                    sharesLoaded = true;
+                    if (data.shares.length === 0) {
+                        shareTableBody.replaceChildren();
+                        shareCount.textContent = "共 0 个分享";
+                        setListState(shareState, "fa fa-share-alt", "还没有分享记录，可以为云盘文件创建分享。");
+                        return;
+                    }
+                    renderShares(data.shares);
+                } catch (error) {
+                    sharesLoaded = false;
+                    shareCount.textContent = "分享数量暂不可用";
+                    setListState(shareState, "fa fa-exclamation-circle", "分享列表加载失败，请稍后重试。", true);
+                } finally {
+                    sharesLoading = false;
+                }
+            }
+
+            const activateTab = (tabName) => {
+                const showFiles = tabName === "files";
+                filesTab.classList.toggle("is-active", showFiles);
+                sharesTab.classList.toggle("is-active", !showFiles);
+                filesTab.setAttribute("aria-selected", String(showFiles));
+                sharesTab.setAttribute("aria-selected", String(!showFiles));
+                filesPanel.hidden = !showFiles;
+                sharesPanel.hidden = showFiles;
+                if (!showFiles && !sharesLoaded) {
+                    loadShares();
+                }
+            };
+
+            const clearShareFeedback = () => {
+                hideNotice(shareCreateStatus);
+                shareCreateResult.hidden = true;
+                shareOpenLink.textContent = "";
+                shareOpenLink.removeAttribute("href");
+                shareResultCode.textContent = "无提取码";
+            };
+
+            const openShareModal = () => {
+                clearShareFeedback();
+                shareModal.hidden = false;
+                shareModal.setAttribute("aria-hidden", "false");
+                document.body.classList.add("cloud-modal-open");
+                window.setTimeout(() => shareFilename.focus(), 0);
+            };
+
+            const closeShareModal = () => {
+                shareModal.hidden = true;
+                shareModal.setAttribute("aria-hidden", "true");
+                document.body.classList.remove("cloud-modal-open");
+                openShareModalButton.focus();
+            };
+
+            topUploadButton.addEventListener("click", chooseUploadFile);
+            uploadInput.addEventListener("change", () => {
+                if (uploadInput.files && uploadInput.files.length > 0) {
+                    uploadForm.submit();
+                }
+            });
+            filesTab.addEventListener("click", () => activateTab("files"));
+            sharesTab.addEventListener("click", () => activateTab("shares"));
+            openShareModalButton.addEventListener("click", openShareModal);
+            closeShareModalButton.addEventListener("click", closeShareModal);
+            cancelShareCreateButton.addEventListener("click", closeShareModal);
+            shareModal.addEventListener("click", (event) => {
+                if (event.target === shareModal) {
+                    closeShareModal();
+                }
+            });
+            document.addEventListener("keydown", (event) => {
+                if (event.key === "Escape" && !shareModal.hidden) {
+                    closeShareModal();
+                }
+            });
+
+            shareForm.addEventListener("submit", async (event) => {
                 event.preventDefault();
-                clearResult();
+                clearShareFeedback();
+                shareSubmitButton.disabled = true;
+                shareSubmitButton.textContent = "正在创建…";
 
-                const originalButtonText = submitButton.textContent;
-                submitButton.disabled = true;
-                submitButton.textContent = "正在创建…";
-
-                const requestBody = new URLSearchParams();
-                new FormData(form).forEach((value, name) => {
-                    requestBody.append(name, value);
+                const requestBody = new URLSearchParams({
+                    filename: shareFilename.value,
+                    code: shareCodeOption.value,
+                    expire_time: shareExpireTime.value
                 });
 
                 try {
@@ -247,25 +753,20 @@
                         body: requestBody.toString(),
                         credentials: "same-origin"
                     });
-
+                    if (redirectIfUnauthorized(response)) {
+                        return;
+                    }
                     if (!response.ok) {
-                        showStatus("创建分享失败，请稍后重试。", "error");
+                        showNotice(shareCreateStatus, "创建分享失败，请稍后重试。", "error");
                         return;
                     }
 
                     const token = (response.headers.get("Share-Token") || "").trim();
                     const code = (response.headers.get("Code") || "").trim();
-
                     if (!token) {
-                        showStatus(
-                            "服务器未返回 Share-Token。当前后端仍只把 token 写入 HttpOnly Cookie，HTML 页面无法生成分享链接。",
-                            "warning"
-                        );
-                        return;
-                    }
-
-                    if (!tokenPattern.test(token)) {
-                        showStatus("服务器返回的 Share-Token 格式无效。", "error");
+                        showNotice(shareCreateStatus, "服务器未返回 Share-Token，暂时无法显示分享链接。", "error");
+                        sharesLoaded = false;
+                        await loadShares();
                         return;
                     }
 
@@ -273,19 +774,22 @@
                         "/share/" + encodeURIComponent(token),
                         window.location.origin
                     ).href;
-
-                    resultUrl.value = shareUrl;
-                    openLink.href = shareUrl;
-                    resultCode.textContent = code && code !== "NULL" ? code : "无提取码";
-                    result.hidden = false;
-                    showStatus("分享创建成功，可以打开或保存以下链接。", "success");
+                    shareOpenLink.href = shareUrl;
+                    shareOpenLink.textContent = shareUrl;
+                    shareResultCode.textContent = code && code !== "NULL" ? code : "无提取码";
+                    shareCreateResult.hidden = false;
+                    showNotice(shareCreateStatus, "分享创建成功。", "success");
+                    sharesLoaded = false;
+                    await loadShares();
                 } catch (error) {
-                    showStatus("网络请求失败，请检查连接后重试。", "error");
+                    showNotice(shareCreateStatus, "网络请求失败，请检查连接后重试。", "error");
                 } finally {
-                    submitButton.disabled = false;
-                    submitButton.textContent = originalButtonText;
+                    shareSubmitButton.disabled = false;
+                    shareSubmitButton.textContent = "创建分享";
                 }
             });
+
+            loadFiles();
         })();
     </script>
 </body>

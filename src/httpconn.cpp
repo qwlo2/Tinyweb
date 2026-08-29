@@ -683,11 +683,19 @@ bool HttpConn::handle_ShareAccess(){
      return false;
 }
 bool HttpConn::handle_ShareVerify(){
-      return  File_shared::Instance()->versity_share_token(request_.route_token(),request_.GetPost("code"));
+      if (! File_shared::Instance()->versity_share_token(request_.route_token(),request_.GetPost("code"))) {
+         sta=actual_ProcessResult::ServerError;
+         return false;
+      }
+      return true;
 }
 bool HttpConn::handle_ShareLogin(){
     request_.paraAuth(authuser);
-   return   authuser.Auth_ar_and_SqlQuary();
+     if (! authuser.Auth_ar_and_SqlQuary()) {
+         sta=actual_ProcessResult::ServerError;
+         return false;
+      }
+      return true;
 }
 bool HttpConn::handle_ShareDownload(){
     auto auth_hash="share_auth:"+sha256_hex(std::move(request_.route_token()));
@@ -701,6 +709,7 @@ bool HttpConn::handle_ShareDownload(){
          sta=actual_ProcessResult::Download;
          return true;
     }
+    sta=actual_ProcessResult::ServerError;
     return false;
 }
 
