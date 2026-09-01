@@ -33,6 +33,9 @@ class File_shared{
      //返回是否需要code
      std::string vsersity_ShareAccess(const std::string& token);
      std::optional<std::vector<ShareListItem>> list_shares(std::size_t user_id);
+     bool cancel_share(std::size_t user_id,
+                       const std::string& filename,
+                       const std::string& created_at);
 };
 // 1. GET  /share/<token>
 //    → 展示文件信息/提取码页面

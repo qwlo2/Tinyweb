@@ -188,6 +188,10 @@ void HttpResponse::AddHeader_(Buffer &buff,responseResult& sta){
     //SameSite 主要限制：从其他网站发起的请求，浏览器要不要携带你的 Cookie。
        buff.Append("Set-Cookie:session="+fileds["cookie"]+"; Path=/; HttpOnly;  SameSite=Lax\r\n");
     }
+    if (fileds.contains("clear_session") &&
+        fileds["clear_session"] == "true") {
+       buff.Append("Set-Cookie: session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax\r\n");
+    }
     if (sta == responseResult::Download) {
       buff.Append("Content-Type: application/octet-stream\r\n");
     } else if (sta == responseResult::Json) {

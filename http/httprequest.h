@@ -29,9 +29,11 @@
     enum class RouteType {
         Normal,
         NeedAuth,//登录
+        Logout,
         Upload,//上传
         Download,//下载
         ShareCreate,//分享
+        ShareCancel,
         ShareAccess, // GET /share/<token>
         ShareVerify,//验证提取码
         ShareDownload,

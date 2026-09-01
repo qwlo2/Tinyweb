@@ -63,7 +63,7 @@
         .cloud-table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--cloud-line); border-radius: 12px; background: #fff; -webkit-overflow-scrolling: touch; }
         .cloud-table { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; }
         .cloud-file-table { min-width: 700px; }
-        .cloud-share-table { min-width: 1000px; }
+        .cloud-share-table { min-width: 1120px; }
         .cloud-table th { padding: 13px 16px; border-bottom: 1px solid var(--cloud-line); background: #f7f9fc; color: #56637a; font-size: 13px; font-weight: 600; text-align: left; }
         .cloud-table td { padding: 15px 16px; border-bottom: 1px solid #edf0f5; color: var(--cloud-text); font-size: 14px; vertical-align: middle; }
         .cloud-table tbody tr:last-child td { border-bottom: 0; }
@@ -81,6 +81,10 @@
         .cloud-icon-button--danger:hover,
         .cloud-icon-button--danger:focus-visible { border-color: #f0c9c4; background: #fff1ef; color: var(--cloud-danger); }
         .cloud-icon-button:disabled { cursor: wait; opacity: 0.5; }
+        .cloud-cancel-button { min-height: 34px; padding: 0 11px; border: 1px solid #f0c9c4; border-radius: 8px; background: #fff; color: var(--cloud-danger); cursor: pointer; font-family: inherit; font-size: 12px; white-space: nowrap; }
+        .cloud-cancel-button:hover,
+        .cloud-cancel-button:focus-visible { background: #fff1ef; }
+        .cloud-cancel-button:disabled { cursor: wait; opacity: 0.5; }
         .cloud-actions-column { width: 150px; }
         .cloud-file-table th:last-child,
         .cloud-file-table td:last-child { position: sticky; right: 0; z-index: 1; background: #fff; box-shadow: -8px 0 14px -14px rgba(23, 35, 61, 0.45); }
@@ -161,6 +165,7 @@
                     <li class="active"><a href="/cloud.html">我的云盘</a></li>
                     <li><a href="/picture.html">图片</a></li>
                     <li><a href="/video.html">视频</a></li>
+                    <li><button class="navbar-logout js-logout" type="button"><i class="fa fa-sign-out" aria-hidden="true"></i> 退出登录</button></li>
                 </ul>
             </div>
         </div>
@@ -234,6 +239,7 @@
                         创建分享
                     </button>
                 </div>
+                <div id="share-notice" class="cloud-notice" role="status" aria-live="polite" hidden></div>
                 <div id="share-state" class="cloud-list-state" role="status" aria-live="polite">
                     <i class="fa fa-folder-open-o" aria-hidden="true"></i>
                     <span>切换到此标签后加载分享记录。</span>
@@ -241,12 +247,13 @@
                 <div id="share-table-wrap" class="cloud-table-scroll" hidden>
                     <table class="cloud-table cloud-share-table">
                         <colgroup>
+                            <col style="width: 18%">
+                            <col style="width: 11%">
+                            <col style="width: 11%">
+                            <col style="width: 15%">
+                            <col style="width: 15%">
                             <col style="width: 21%">
-                            <col style="width: 12%">
-                            <col style="width: 12%">
-                            <col style="width: 17%">
-                            <col style="width: 17%">
-                            <col style="width: 21%">
+                            <col style="width: 9%">
                         </colgroup>
                         <thead>
                             <tr>
@@ -256,6 +263,7 @@
                                 <th scope="col">到期时间</th>
                                 <th scope="col">分享时间</th>
                                 <th scope="col">分享链接</th>
+                                <th scope="col">操作</th>
                             </tr>
                         </thead>
                         <tbody id="share-table-body"></tbody>
@@ -340,6 +348,7 @@
             const fileTableBody = document.getElementById("file-table-body");
             const fileOptions = document.getElementById("cloud-file-options");
             const shareCount = document.getElementById("share-count");
+            const shareNotice = document.getElementById("share-notice");
             const shareState = document.getElementById("share-state");
             const shareTableWrap = document.getElementById("share-table-wrap");
             const shareTableBody = document.getElementById("share-table-body");
@@ -598,6 +607,52 @@
                 }
             }
 
+            const cancelShare = async (share, button) => {
+                const fileName = String(share.file_name);
+                if (!window.confirm(`确定取消“${fileName}”的这条分享吗？`)) {
+                    return;
+                }
+
+                hideNotice(shareNotice);
+                button.disabled = true;
+                const requestBody = new URLSearchParams({
+                    filename: String(share.file_name),
+                    created_at: String(share.created_at)
+                });
+
+                try {
+                    const response = await fetch("/share/cancel", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: requestBody.toString(),
+                        credentials: "same-origin"
+                    });
+                    if (redirectIfUnauthorized(response)) {
+                        return;
+                    }
+                    if (!response.ok) {
+                        throw new Error("cancel share failed");
+                    }
+
+                    const result = await response.json();
+                    if (!result || result.ok !== true) {
+                        throw new Error("unexpected cancel response");
+                    }
+
+                    sharesLoaded = false;
+                    await loadShares();
+                    if (sharesLoaded) {
+                        showNotice(shareNotice, "分享已取消，列表已更新。", "success");
+                    } else {
+                        showNotice(shareNotice, "分享已取消，但列表刷新失败，请稍后重新加载。", "error");
+                    }
+                } catch (error) {
+                    showNotice(shareNotice, "取消分享失败，请稍后重试。", "error");
+                } finally {
+                    button.disabled = false;
+                }
+            };
+
             const renderShares = (shares) => {
                 const rows = shares.map((share) => {
                     const fileName = String(share.file_name);
@@ -606,6 +661,8 @@
                     const row = document.createElement("tr");
                     const linkCell = document.createElement("td");
                     const link = document.createElement("a");
+                    const actionCell = document.createElement("td");
+                    const cancelButton = document.createElement("button");
                     const hasCode = share.has_code === true;
                     const permanent = share.expire_time === null;
 
@@ -616,13 +673,21 @@
                     link.textContent = sharePath;
                     linkCell.appendChild(link);
 
+                    cancelButton.className = "cloud-cancel-button";
+                    cancelButton.type = "button";
+                    cancelButton.textContent = "取消分享";
+                    cancelButton.setAttribute("aria-label", `取消 ${fileName} 的分享`);
+                    cancelButton.addEventListener("click", () => cancelShare(share, cancelButton));
+                    actionCell.appendChild(cancelButton);
+
                     row.append(
                         createTextCell(fileName),
                         createBadgeCell(hasCode ? "有提取码" : "无提取码", hasCode ? "cloud-badge--blue" : "cloud-badge--gray"),
                         createBadgeCell(permanent ? "永久有效" : "限时有效", permanent ? "cloud-badge--green" : "cloud-badge--blue"),
                         createTextCell(permanent ? "—" : String(share.expire_time), true),
                         createTextCell(String(share.created_at), true),
-                        linkCell
+                        linkCell,
+                        actionCell
                     );
                     return row;
                 });
@@ -638,6 +703,7 @@
                     return;
                 }
                 sharesLoading = true;
+                hideNotice(shareNotice);
                 shareCount.textContent = "正在统计分享…";
                 shareTableWrap.hidden = true;
                 setListState(shareState, "fa fa-spinner fa-spin", "正在加载分享列表…");

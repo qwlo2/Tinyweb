@@ -201,6 +201,29 @@ bool Session::versityToken(const std::string& cookie,size_t& user_id){
     freeReplyObject(reply);
        return false;
 }
+bool Session::deleteToken(const std::string& token) {
+    auto redis = GetConn();
+    if (!redis) {
+        return false;
+    }
+
+    const std::string key = "session:" + sha256_hex(token);
+    auto reply = static_cast<redisReply*>(redisCommand(
+        redis.get(),
+        "DEL %b",
+        key.data(),
+        key.size()
+    ));
+    if (!reply) {
+        return false;
+    }
+
+    const bool success =
+        reply->type == REDIS_REPLY_INTEGER &&
+        (reply->integer == 0 || reply->integer == 1);
+    freeReplyObject(reply);
+    return success;
+}
  Session*  Session::Intense(){
      static Session session_;
      return  &session_;

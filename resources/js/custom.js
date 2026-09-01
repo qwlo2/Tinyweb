@@ -13,6 +13,32 @@
           $(".navbar-collapse").collapse('hide');
         });
 
+        $('.js-logout').on('click', function(){
+          var button = this;
+          button.disabled = true;
+
+          fetch('/logout', {
+            method: 'POST',
+            credentials: 'same-origin'
+          })
+          .then(function(response){
+            if (!response.ok) {
+              throw new Error('logout failed');
+            }
+            return response.json();
+          })
+          .then(function(result){
+            if (!result || result.ok !== true) {
+              throw new Error('unexpected logout response');
+            }
+            window.location.href = '/login.html';
+          })
+          .catch(function(){
+            button.disabled = false;
+            window.alert('退出失败，请稍后重试。');
+          });
+        });
+
         $(window).scroll(function() {
           if ($(".navbar").offset().top > 50) {
             $(".navbar-fixed-top").addClass("top-nav-collapse");

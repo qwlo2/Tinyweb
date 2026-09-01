@@ -187,9 +187,39 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
                                static_cast<unsigned long>(order.size())) == 0 &&
                            mysql_stmt_bind_param(pre_stmt.get(), bind) == 0 &&
                            mysql_stmt_execute(pre_stmt.get()) == 0;
-            if (!file_ok) {
+            if (file_ok) {
               return std::nullopt;
             }
+//             if (mysql_stmt_prepare(
+//         pre_stmt.get(),
+//         order.data(),
+//         static_cast<unsigned long>(order.size())) != 0) {
+//     LOG_ERROR("share prepare failed: %s",
+//               mysql_stmt_error(pre_stmt.get()));
+//     return std::nullopt;
+// }
+
+// if (mysql_stmt_bind_param(pre_stmt.get(), bind) != 0) {
+//     LOG_ERROR("share bind failed: %s",
+//               mysql_stmt_error(pre_stmt.get()));
+//     return std::nullopt;
+// }
+
+// if (mysql_stmt_execute(pre_stmt.get()) != 0) {
+//     LOG_ERROR("share execute failed, errno=%u, error=%s",
+//               mysql_stmt_errno(pre_stmt.get()),
+//               mysql_stmt_error(pre_stmt.get()));
+//     return std::nullopt;
+// }
+
+// if (mysql_stmt_affected_rows(pre_stmt.get()) == 0) {
+//     LOG_ERROR(
+//         "share insert matched no file: user_id=%zu, filename=%s",
+//         user_id,
+//         filename.c_str()
+//     );
+//     return std::nullopt;
+// }
                 //插入了几行，看是否存在文件
                 file_ok= mysql_stmt_affected_rows(pre_stmt.get());
                 if (!file_ok) {
@@ -550,4 +580,91 @@ std::optional<std::vector<ShareListItem>> File_shared::list_shares(
         shares.push_back(std::move(item));
     }
     return shares;
+}
+
+bool File_shared::cancel_share(std::size_t current_user_id,
+                               const std::string& filename,
+                               const std::string& created_at) {
+    auto mysql = SqlConnPool::Instance()->GetConn();
+    if (!mysql) {
+        return false;
+    }
+
+    const std::string select_sql =
+        "SELECT s.share_id "
+        "FROM share AS s JOIN `file` AS f ON f.file_id=s.file_id "
+        "WHERE f.user_id=? AND f.file_name=? "
+        "AND DATE_FORMAT(s.created_at,'%Y-%m-%d %H:%i:%s')=? "
+        "LIMIT 2;";
+    std::shared_ptr<MYSQL_STMT> select_stmt(
+        mysql_stmt_init(mysql.get()),
+        [](MYSQL_STMT* value) {
+            if (value) {
+                mysql_stmt_close(value);
+            }
+        });
+    if (!select_stmt) {
+        return false;
+    }
+
+    std::uint64_t user_id_value = current_user_id;
+    unsigned long filename_length =
+        static_cast<unsigned long>(filename.size());
+    unsigned long created_at_length =
+        static_cast<unsigned long>(created_at.size());
+    MYSQL_BIND select_params[3]{};
+    select_params[0].buffer_type = MYSQL_TYPE_LONGLONG;
+    select_params[0].buffer = &user_id_value;
+    select_params[0].is_unsigned = true;
+    select_params[1].buffer_type = MYSQL_TYPE_STRING;
+    select_params[1].buffer = const_cast<char*>(filename.data());
+    select_params[1].buffer_length = filename_length;
+    select_params[1].length = &filename_length;
+    select_params[2].buffer_type = MYSQL_TYPE_STRING;
+    select_params[2].buffer = const_cast<char*>(created_at.data());
+    select_params[2].buffer_length = created_at_length;
+    select_params[2].length = &created_at_length;
+
+    if (mysql_stmt_prepare(select_stmt.get(), select_sql.data(),
+                           static_cast<unsigned long>(select_sql.size())) != 0 ||
+        mysql_stmt_bind_param(select_stmt.get(), select_params) != 0 ||
+        mysql_stmt_execute(select_stmt.get()) != 0 ||
+        mysql_stmt_store_result(select_stmt.get()) != 0 ||
+        mysql_stmt_num_rows(select_stmt.get()) != 1) {
+        return false;
+    }
+
+    std::uint64_t share_id = 0;
+    MYSQL_BIND select_result{};
+    select_result.buffer_type = MYSQL_TYPE_LONGLONG;
+    select_result.buffer = &share_id;
+    select_result.is_unsigned = true;
+    if (mysql_stmt_bind_result(select_stmt.get(), &select_result) != 0 ||
+        mysql_stmt_fetch(select_stmt.get()) != 0 || share_id == 0) {
+        return false;
+    }
+    select_stmt.reset();
+
+    const std::string delete_sql =
+        "DELETE FROM share WHERE share_id=?;";
+    std::shared_ptr<MYSQL_STMT> delete_stmt(
+        mysql_stmt_init(mysql.get()),
+        [](MYSQL_STMT* value) {
+            if (value) {
+                mysql_stmt_close(value);
+            }
+        });
+    if (!delete_stmt) {
+        return false;
+    }
+
+    MYSQL_BIND delete_param{};
+    delete_param.buffer_type = MYSQL_TYPE_LONGLONG;
+    delete_param.buffer = &share_id;
+    delete_param.is_unsigned = true;
+    return mysql_stmt_prepare(delete_stmt.get(), delete_sql.data(),
+                              static_cast<unsigned long>(delete_sql.size())) == 0 &&
+           mysql_stmt_bind_param(delete_stmt.get(), &delete_param) == 0 &&
+           mysql_stmt_execute(delete_stmt.get()) == 0 &&
+           mysql_stmt_affected_rows(delete_stmt.get()) == 1;
 }

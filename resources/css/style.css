@@ -257,6 +257,31 @@ a:hover, a:active, a:focus {
   color: #454545;
 }
 
+.custom-navbar .nav li .navbar-logout {
+  margin: 7px 0 7px 15px;
+  padding: 7px 13px;
+  border: 1px solid #d8e0ed;
+  border-radius: 7px;
+  background: transparent;
+  color: #656565;
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: border-color .2s ease, color .2s ease, background-color .2s ease;
+}
+
+.custom-navbar .nav li .navbar-logout:hover,
+.custom-navbar .nav li .navbar-logout:focus {
+  border-color: #b9c8df;
+  outline: none;
+  background: #f5f8fc;
+  color: #2f6fed;
+}
+
+.custom-navbar .nav li .navbar-logout:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
 .custom-navbar .navbar-toggle {
   border: none;
   padding-top: 12px;
@@ -532,6 +557,10 @@ a:hover, a:active, a:focus {
   .custom-navbar .nav li a {
     display: inline-block;
     margin-bottom: 5px;
+  }
+
+  .custom-navbar .nav li .navbar-logout {
+    margin: 5px 15px 10px;
   }
 
 }

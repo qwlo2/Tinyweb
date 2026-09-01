@@ -22,9 +22,11 @@ enum class ProcessResult {
 //然后通过sta在handle-share中进行处理对于的状态
 enum class actual_ProcessResult{
      NeedAuth,
+    Logout,
     Upload,
     Download,
      ShareCreate,//分享
+    ShareCancel,
     ShareVerify,//验证提取码
     ShareDownload,
      ShareAccess, // GET /share/<token>
@@ -81,6 +83,8 @@ public:
     bool handle_ShareVerify();
     bool handle_ShareDownload();
     bool handle_ShareLogin();
+    bool handle_Logout();
+    bool handle_ShareCancel();
 
     //显示功能和删除
     bool handle_FileList();

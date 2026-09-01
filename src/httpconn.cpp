@@ -307,12 +307,18 @@ ProcessResult HttpConn::process(){
         case RouteType::FileList:
         case RouteType::FileDelete:
         case RouteType::ShareList:
+        case RouteType::Logout:
+        case RouteType::ShareCancel:
             if (request_.route() == RouteType::FileList) {
                 sta = actual_ProcessResult::FileList;
             } else if (request_.route() == RouteType::FileDelete) {
                 sta = actual_ProcessResult::FileDelete;
-            } else {
+            } else if (request_.route() == RouteType::ShareList) {
                 sta = actual_ProcessResult::ShareList;
+            } else if (request_.route() == RouteType::Logout) {
+                sta = actual_ProcessResult::Logout;
+            } else {
+                sta = actual_ProcessResult::ShareCancel;
             }
             return ProcessResult::CloudData;
         case RouteType::Normal:
@@ -636,6 +642,10 @@ bool HttpConn::handle_route(){
                     return handle_FileDelete();
         case actual_ProcessResult::ShareList:
                     return handle_ShareList();
+        case actual_ProcessResult::Logout:
+                    return handle_Logout();
+        case actual_ProcessResult::ShareCancel:
+                    return handle_ShareCancel();
         }  
     return false;
 }
@@ -679,12 +689,12 @@ bool HttpConn::handle_ShareAccess(){
          response_.set_filed("has_code", res);
          return true;
      }
-      sta=actual_ProcessResult::ServerError;
+      sta=actual_ProcessResult::Unauthorized;
      return false;
 }
 bool HttpConn::handle_ShareVerify(){
       if (! File_shared::Instance()->versity_share_token(request_.route_token(),request_.GetPost("code"))) {
-         sta=actual_ProcessResult::ServerError;
+         sta=actual_ProcessResult::Unauthorized;
          return false;
       }
       return true;
@@ -692,7 +702,7 @@ bool HttpConn::handle_ShareVerify(){
 bool HttpConn::handle_ShareLogin(){
     request_.paraAuth(authuser);
      if (! authuser.Auth_ar_and_SqlQuary()) {
-         sta=actual_ProcessResult::ServerError;
+         sta=actual_ProcessResult::Unauthorized;
          return false;
       }
       return true;
@@ -709,7 +719,7 @@ bool HttpConn::handle_ShareDownload(){
          sta=actual_ProcessResult::Download;
          return true;
     }
-    sta=actual_ProcessResult::ServerError;
+    sta=actual_ProcessResult::Unauthorized;
     return false;
 }
 
@@ -758,6 +768,34 @@ bool HttpConn::handle_ShareList() {
     return true;
 }
 
+bool HttpConn::handle_Logout() {
+    const auto session = request_.get_cookie("session");
+    if (session && !Session::Intense()->deleteToken(*session)) {
+        sta = actual_ProcessResult::ServerError;
+        return false;
+    }
+    response_.set_filed("body", "{\"ok\":true}");
+    response_.set_filed("clear_session", "true");
+    return true;
+}
+
+bool HttpConn::handle_ShareCancel() {
+    std::size_t user_id = 0;
+    if (!versityToken(user_id)) {
+        sta = actual_ProcessResult::Unauthorized;
+        return false;
+    }
+    if (!File_shared::Instance()->cancel_share(
+            user_id,
+            request_.GetPost("filename"),
+            request_.GetPost("created_at"))) {
+        sta = actual_ProcessResult::ServerError;
+        return false;
+    }
+    response_.set_filed("body", "{\"ok\":true}");
+    return true;
+}
+
 // bool HttpConn::handle_CloudData() {
 //     switch (sta) {
 //     case actual_ProcessResult::FileList:
@@ -792,6 +830,8 @@ responseResult HttpConn::status_route(actual_ProcessResult& sta){
            case actual_ProcessResult::FileList:
            case actual_ProcessResult::FileDelete:
            case actual_ProcessResult::ShareList:
+           case actual_ProcessResult::Logout:
+           case actual_ProcessResult::ShareCancel:
                 return responseResult::Json;
           // case actual_ProcessResult::responseOnly:不参与这个，它只做
            case actual_ProcessResult::ServerError:

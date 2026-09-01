@@ -664,6 +664,16 @@ const std::string& HttpRequest::route_token() const {
             return;
         }
 
+        if (path_ == "/logout") {
+            route_ = RouteType::Logout;
+            return;
+        }
+
+        if (path_ == "/share/cancel") {
+            route_ = RouteType::ShareCancel;
+            return;
+        }
+
         if (path_ == "/file/delete") {
             route_ = RouteType::FileDelete;
             return;

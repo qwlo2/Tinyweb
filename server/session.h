@@ -20,6 +20,7 @@ class Session{
       std::optional<std::string> gettoken( const std::string& uesename);
 
       bool versityToken(const std::string& cookies,size_t& user_id);
+      bool deleteToken(const std::string& token);
        void Init(const char* host, int port, int connSize);//datebase
       static Session*  Intense();
        void ClosePool();
