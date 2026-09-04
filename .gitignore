@@ -20,6 +20,7 @@ build.ninja
 # Runtime and test output
 *.log
 reg_login_failures.csv
+/benchmark/results/
 
 # Python cache
 __pycache__/
@@ -33,3 +34,13 @@ http/staticfilecache.h
 .gitignore
 build-release/Tinywebserver
 text.cpp
+# =========================
+# Runtime file storage
+# =========================
+/data/tmp/
+/data/object/
+
+# =========================
+# Benchmark generated files
+# =========================
+/benchmark/results/

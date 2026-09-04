@@ -89,8 +89,8 @@ void Buffer::Append(const Buffer& buff){
 //fd中读取到buffer
 ssize_t Buffer::ReadFd(int fd, int* saveErrno){
    // char buff[65535-buf_size];数组要常量是因为栈变量的大小要确定，指针和vector底层都是堆空间
-    size_t  length=65536-buffer_.size();
-    char* buff=new char[length];//设置上限，最大64kb
+    size_t  length=200000-buffer_.size();
+    char* buff=new char[length];//设置上限，最大195kb，socket缓冲区的default值是 212992
      iovec iov[2];//2个地方分别是buffer和临时缓冲区，配合readv，writev，read/write依次写满
      const size_t save_writableBytes=WritableBytes();
     iov[0].iov_base=BeginWrite();

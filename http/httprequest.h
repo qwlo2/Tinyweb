@@ -115,7 +115,7 @@ private:
     static constexpr size_t MAX_REQUEST_LINE_SIZE = 8 * 1024;
     static constexpr size_t MAX_HEADER_TOTAL_SIZE = 64 * 1024;
     static constexpr size_t MAX_HEADER_COUNT = 100;
-    static constexpr uint64_t MAX_BODY_SIZE = 4ULL*1024 * 1024*1024;
+    static constexpr uint64_t MAX_BODY_SIZE = 4ULL*1024 * 1024*1024;//4GB
 
     PARSE_STATE state_;
     std::string  path_, version_, body_;

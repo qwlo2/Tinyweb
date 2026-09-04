@@ -187,7 +187,7 @@ std::optional<std::pair<std::string,std::string>>   File_shared::share_file(cons
                                static_cast<unsigned long>(order.size())) == 0 &&
                            mysql_stmt_bind_param(pre_stmt.get(), bind) == 0 &&
                            mysql_stmt_execute(pre_stmt.get()) == 0;
-            if (file_ok) {
+            if (!file_ok) {
               return std::nullopt;
             }
 //             if (mysql_stmt_prepare(
