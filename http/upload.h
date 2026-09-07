@@ -20,6 +20,11 @@ struct FileListItem {
       std::string file_name;
       std::uint64_t file_size;
 };
+enum class MultipartState {
+    PartHeaders,
+    PartBody,
+    Finished,
+};
 class UploadFile{
     private:
         size_t user_id;
@@ -30,12 +35,16 @@ class UploadFile{
         EVP_MD_CTX* hash_ctx_ { nullptr};
         std::filesystem::path temp_path;
         int file_fd{-1};
+        bool ready_rece_data{false};
         std::unordered_map<std::string, std::string> fileds;
+         std::list<std::string> file_filed;//字节流不一定每次都一定是kv成对出现
+        MultipartState sta={MultipartState::PartHeaders};
     public:
        void init();
+       void file_part_init();
        ~UploadFile();
        //字段初始化
-       void parase_filed(std::list<std::string>& list);
+       void parase_filed();
        bool inited{false};
 
        size_t& get_user_id();
@@ -48,6 +57,8 @@ class UploadFile{
        Upload handle_upload_file(Buffer& readBuff_);
        //只要write到内核成功就可以，否则为失败，停止传输，返回文件重传
        Upload upload_file(int file_fd,Buffer& readBuff_);
+        MultipartState Parse_PartHeaders(const std::string& line);
+        bool ParseFileBody(const std::string& line);
        //OpenSSL （https）增量 SHA-256，evp，增强验证包，md5/sha256是加密算法，
        bool init_fileds();
        bool chunkhash(const char* data,size_t len);
@@ -62,4 +73,7 @@ class UploadFile{
         bool add_or_increment_object(std::filesystem::path& fina_path);
        std::optional<std::vector<FileListItem>> list_files(std::size_t user_id);
        bool delete_file(std::size_t user_id, std::uint64_t file_id);
+
+        static std::string Trim_(const std::string& str);
+       static std::string ToLower_(std::string str);
 };

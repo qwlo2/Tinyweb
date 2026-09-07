@@ -1,6 +1,7 @@
 #include "upload.h"
 #include "buffer.h"
 #include "sqlconnpool.h"
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstddef>
@@ -20,10 +21,10 @@
 #include <vector>
 
 
-void UploadFile::parase_filed(std::list<std::string>& list){
+void UploadFile::parase_filed(){
      int i=1;
      std::string key;
-      for (auto& it : list) {
+      for (auto& it : file_filed) {
            if (i%2) {
                key=it;
            }else {
@@ -34,25 +35,30 @@ void UploadFile::parase_filed(std::list<std::string>& list){
 }
 void UploadFile::init(){
   user_id = 0;
+  file_part_init();
+}
+void UploadFile::file_part_init(){
+  MultipartState sta = {MultipartState::PartHeaders};
   file_id = 0;
+  ready_rece_data = false;
   writed_size = 0;
   ready_write_size = 0;
   fileds = {};
-  if (file_fd>0) {
-     close(file_fd);
+  file_filed = {};
+  if (file_fd > 0) {
+    close(file_fd);
   }
-  file_fd=-1;
-  inited=false;
+  file_fd = -1;
+  inited = false;
   if (hash_ctx_) {
-       EVP_MD_CTX_free(hash_ctx_);
+    EVP_MD_CTX_free(hash_ctx_);
   }
-  hash_ctx_=nullptr;
+  hash_ctx_ = nullptr;
   if (!temp_path.empty()) {
-     ::unlink(temp_path.c_str());
+    ::unlink(temp_path.c_str());
   }
   temp_path.clear();
-  boundary={};
-  
+  boundary = {};
 }
 UploadFile::~UploadFile(){
   if (file_fd>0) {
@@ -81,6 +87,54 @@ void UploadFile::incr_ready_write_size(size_t num){
 std::string& UploadFile::get_boundary(){
      return boundary;
  }
+  bool UploadFile::ParseFileBody(const std::string& line){
+     //Content-Disposition: form-data; name="url"
+//http://127.0.0.1:1316/file(resume)
+// ------TinyWebBoundary
+// Content-Disposition: form-data; name="file"; filename="hello.txt"
+// Content-Type: text/plain
+//只有三种情况，boundary被我跳过了
+//一是part——data，也就是resume;二是Content-Disposition: form-data; name="file"; filename="hello.txt"这种类型;
+//三是Content-Type: text/plain
+    auto pos=line.find(":");
+    //  if (pos==std::string::npos) {
+         //此时是part——data
+    //     file_filed.emplace_back(line);
+    // }else
+    if ( std::string tmp(ToLower_(line.substr(0,pos)));tmp=="content-type") {
+        //此时是Content-Type
+        file_filed.emplace_back(line.substr(0,pos));
+          file_filed.emplace_back(Trim_(line.substr(pos+1)));
+           ready_rece_data=true;
+    }else if (std::string (ToLower_(line.substr(0,pos)))=="content-disposition") {
+       //此时是Content-Disposition
+       pos=line.find_first_of("=");
+       if (pos==std::string::npos) {
+            return false;
+       }
+       //区分普通的Content-Disposition和最后带文件名的部分
+       auto pos_=line.find_last_of(";");
+       if (pos_==std::string::npos) {
+        //普通的(只有一个k=v)
+           auto tmp=std::move(Trim_(line.substr(pos+1)));
+           //要去掉双引号
+           file_filed.emplace_back(tmp.substr(1,tmp.size()-3));
+       }else {
+           //带文件名的
+           auto tmp=std::move(Trim_(line.substr(pos+1,pos_-pos)));
+           file_filed.emplace_back(tmp.substr(1,tmp.size()-3));
+           
+           pos=line.find_last_of("=");
+           tmp=std::move(Trim_(line.substr(pos+1)));
+           file_filed.emplace_back(tmp.substr(1,tmp.size()-2));
+       }
+    }else {
+          //此时是part——data
+          //非文件字段，可能有：。也可能没有，因此只要不是Content-Disposition和content-type全部加入filde
+        file_filed.emplace_back(line);
+    }
+     return true;
+  }
  Upload UploadFile::upload_file(int file_fd,Buffer& readBuff_){
        //因为结束符不一定是连贯的
        //\r\n--boundary-- \r\n
@@ -88,7 +142,7 @@ std::string& UploadFile::get_boundary(){
       
 
      const std::string end_boundary =
-        "\r\n--" + boundary + "--"+"\r\n";
+        "\r\n--" + boundary + "--";
 
     const size_t readable = readBuff_.ReadableBytes();
 
@@ -132,8 +186,19 @@ std::string& UploadFile::get_boundary(){
              return Upload::UploadError;
        }
        if (is_end) {
-          //响应报文
-          readBuff_.Retrieve(end_boundary.size());
+         //不够
+         if (readBuff_.ReadableBytes()<end_boundary.size()+2) {
+            return Upload::NeedRead;
+         }
+         //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
+         std::string line(readBuff_.Peek(),end_boundary.size()+2);
+         if (line!=end_boundary+"--") {
+            //下一个文件
+            file_part_init();
+            sta=MultipartState::PartHeaders;
+            return  Upload::NeedRead;
+         }
+          readBuff_.Retrieve(end_boundary.size()+2);
            return Upload::ReadyWrite;
        }
           //文件没有上传完成
@@ -143,13 +208,47 @@ std::string& UploadFile::get_boundary(){
  //页缓存是内核维护的、可回写和可回收的中间缓冲。当磁盘跟不上时，
  // 内核会让 write() 变慢，从而把压力逐层传回网络端。因此即便 write() 后数据暂时还在内存中，整个上传依然是流式的。
 Upload UploadFile::handle_upload_file(Buffer& readBuff_){
-    
-         auto  ret=std::move(upload_file(file_fd,readBuff_));
-       //将剩余的移动到前方，防止缓冲区无线扩大
-       readBuff_.adjust_pos();
-       //上传完毕
-       if (ret==Upload::ReadyWrite) {
-          //rename,sync
+       const char CRLF[]="\r\n";
+       while (true ) {
+          if (sta==MultipartState::PartHeaders) {
+            const char* lineend=std::search(readBuff_.Peek(),readBuff_.BeginWriteConst(),CRLF,CRLF+2);
+               if (lineend==readBuff_.BeginWrite()) {
+                  return  Upload::NeedRead;
+               }
+              //最后一个/r/n和peek重合，因此为empty
+            std::string line(readBuff_.Peek(),lineend-readBuff_.Peek());
+            //把剩下2个去除
+            readBuff_.RetrieveUntil(lineend+2);
+            if (line.empty()||line=="--"+boundary) {
+                if (ready_rece_data) {
+                    sta=MultipartState::PartBody;
+                }
+               continue;
+            }
+          auto ret=std::move(ParseFileBody(line));
+             if(!ret){
+                return Upload::UploadError;
+            }
+            continue;
+           sta=MultipartState::Finished;
+         }
+         if (sta==MultipartState::PartBody) {
+           parase_filed();
+           if (!!init_fileds()) {
+             return Upload::UploadError;
+           }
+
+           auto ret = std::move(upload_file(file_fd, readBuff_));
+           // 将剩余的移动到前方，防止缓冲区无线扩大
+           readBuff_.adjust_pos();
+           // 上传完毕
+           if (ret == Upload::ReadyWrite) {
+              sta=MultipartState::Finished;
+           }
+           return  ret;
+         }
+        if (sta==MultipartState::Finished) {
+              //rename,sync
           std::string hash_hex;
            if ( !finishHash(hash_hex)) {
             //    EVP_MD_CTX_free(hash_ctx_);
@@ -165,20 +264,11 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
           std::filesystem::path fina_path=fina_dire/hash_hex;
             fsync(file_fd);
           if (!rename_file(fina_path)) {
-            //   EVP_MD_CTX_free(hash_ctx_);
-            //   close(file_fd);
               return Upload::UploadError;
           }
-          //成功要释放资源
-        //   EVP_MD_CTX_free(hash_ctx_);
-        //       close(file_fd);
-       }else if (ret==Upload::UploadError ) {
-       
-        //   EVP_MD_CTX_free(hash_ctx_);
-        //      close(file_fd);
+         }
+
        }
-      
-      return  ret;
  }
  bool UploadFile::init_fileds(){
      //增量hash初始化
@@ -621,3 +711,28 @@ bool UploadFile::delete_file(std::size_t current_user_id,
     }
     return true;
 }
+std::string UploadFile::Trim_(const std::string& str){
+ size_t begin=0;
+    while(begin<str.size()&&std::isspace(static_cast<unsigned char>(str[begin]))){
+        ++begin;
+    }
+    size_t end=str.size();
+    while(end>begin&&std::isspace(static_cast<unsigned char>(str[end-1]))){
+        --end;
+    }
+    //如“  aa  ”“，把左右的空格去掉
+    return str.substr(begin,end-begin);
+ }
+ std::string UploadFile::ToLower_(std::string str){
+// std::transform(str.begin(),str.end(),str.begin(),[](unsigned char ch){
+    //     return static_cast<char>(std::tolower(ch));
+    // });
+    // return str;
+    //把所有大写变小写
+    for (char& ch : str) {
+        if (ch >= 'A' && ch <= 'Z') {
+            ch = static_cast<char>(ch - 'A' + 'a');
+        }
+    }
+    return str;
+ }

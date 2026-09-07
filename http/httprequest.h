@@ -95,6 +95,7 @@ private:
     ParseResult ParseRequestLine_(const std::string& line);//行
     ParseResult ParseHeader_(const std::string& line);//头
     void ParseBody_(const std::string& line);//体
+    //废弃
     ParseResult ParseFileBody(const std::string& line);//文件
 
     void ParsePath_();
@@ -122,6 +123,7 @@ private:
     HttpMethod  method_;
     std::unordered_map<std::string, std::string> header_;
     std::unordered_map<std::string, std::string> post_;
+    //废弃
      std::list<std::string> file_filed;//由于不是kv形式的报文，因此把所有解析的都放在这里，最后组装
 
     size_t contentLength_;

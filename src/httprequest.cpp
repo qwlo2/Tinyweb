@@ -125,26 +125,27 @@ ParseResult HttpRequest::parse(Buffer& buff){
         }
         //和body一样都是把信息解析完，然后上传的操作单独有函数，parepost中也把文件的原信息给file——upload类
         if (state_==PARSE_STATE::FILR_BODY) {
-               const char* lineend=std::search(buff.Peek(),buff.BeginWriteConst(),CRLF,CRLF+2);
-               if (lineend==buff.BeginWrite()) {
-                  return  ParseResult::Incomplete;
-               }
-              //最后一个/r/n和peek重合，因此为empty
-            std::string line(buff.Peek(),lineend-buff.Peek());
-            //把剩下2个去除
-            buff.RetrieveUntil(lineend+2);
-            if (line.empty()||line=="--"+header_["boundary"]) {
-                if (ready_rece_data) {
-                    state_=PARSE_STATE::FINISH;
-                    return  ParseResult::Complete;
-                }
-               continue;
-            }
-          auto ret=std::move(ParseFileBody(line));
-          if(ret!=ParseResult::Complete){
-                return ret;
-            }
-            continue;
+        //        const char* lineend=std::search(buff.Peek(),buff.BeginWriteConst(),CRLF,CRLF+2);
+        //        if (lineend==buff.BeginWrite()) {
+        //           return  ParseResult::Incomplete;
+        //        }
+        //       //最后一个/r/n和peek重合，因此为empty
+        //     std::string line(buff.Peek(),lineend-buff.Peek());
+        //     //把剩下2个去除
+        //     buff.RetrieveUntil(lineend+2);
+        //     if (line.empty()||line=="--"+header_["boundary"]) {
+        //         if (ready_rece_data) {
+        //             state_=PARSE_STATE::FINISH;
+        //             return  ParseResult::Complete;
+        //         }
+        //        continue;
+        //     }
+        //   auto ret=std::move(ParseFileBody(line));
+        //   if(ret!=ParseResult::Complete){
+        //         return ret;
+        //     }
+        //     continue;
+         state_=PARSE_STATE::FINISH;
         }
         if(state_==PARSE_STATE::BODY){
             // if(contentLength_>MAX_BODY_SIZE){
@@ -483,9 +484,9 @@ void HttpRequest::para_up_File(UploadFile& filer){
   if(route_==RouteType::Upload){
   //  int tag=DEFAULT_HTML_TAG.find(path_)->second;
              // LOG_DEBUG("upload file:%s",file_filed.);
-                filer.parase_filed(file_filed);
+               // filer.parase_filed(file_filed);
                 filer.get_boundary()=header_["boundary"];
-                 LOG_DEBUG("upload file:%s",filer.get_filename().c_str());
+                // LOG_DEBUG("upload file:%s",filer.get_filename().c_str());
                 path_="/error.html";
   }
 }
@@ -527,7 +528,8 @@ void HttpRequest::ParseBody_(const std::string& line){
     LOG_DEBUG("Body:%s,len:%d",body_.c_str(),body_.size());
 }
 ParseResult HttpRequest::ParseFileBody(const std::string& line){
-//resume
+//Content-Disposition: form-data; name="url"
+//http://127.0.0.1:1316/file(resume)
 // ------TinyWebBoundary
 // Content-Disposition: form-data; name="file"; filename="hello.txt"
 // Content-Type: text/plain
@@ -535,15 +537,16 @@ ParseResult HttpRequest::ParseFileBody(const std::string& line){
 //一是part——data，也就是resume;二是Content-Disposition: form-data; name="file"; filename="hello.txt"这种类型;
 //三是Content-Type: text/plain
     auto pos=line.find(":");
-    if (pos==std::string::npos) {
-        //此时是part——data
-        file_filed.emplace_back(line);
-    }else if ( std::string tmp(ToLower_(line.substr(0,pos)));tmp=="content-type") {
+    //  if (pos==std::string::npos) {
+         //此时是part——data
+    //     file_filed.emplace_back(line);
+    // }else
+    if ( std::string tmp(ToLower_(line.substr(0,pos)));tmp=="content-type") {
         //此时是Content-Type
         file_filed.emplace_back(line.substr(0,pos));
           file_filed.emplace_back(Trim_(line.substr(pos+1)));
            ready_rece_data=true;
-    }else {
+    }else if (std::string (ToLower_(line.substr(0,pos)))=="content-disposition") {
        //此时是Content-Disposition
        pos=line.find_first_of("=");
        if (pos==std::string::npos) {
@@ -565,6 +568,10 @@ ParseResult HttpRequest::ParseFileBody(const std::string& line){
            tmp=std::move(Trim_(line.substr(pos+1)));
            file_filed.emplace_back(tmp.substr(1,tmp.size()-2));
        }
+    }else {
+          //此时是part——data
+          //非文件字段，可能有：。也可能没有，因此只要不是Content-Disposition和content-type全部加入filde
+        file_filed.emplace_back(line);
     }
      return  ParseResult::Complete;
 }

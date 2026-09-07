@@ -250,11 +250,13 @@ ProcessResult HttpConn::process(){
               break;
             }
               file.inited = true;
-            request_.para_up_File(file);
-             if ( !file.init_fileds()) {
-              ret = responseResult::ServerError;
-              break;
-            }
+              //这里只是将boundary进行交接以及设置path
+              //为了多文件同时上传的实现，将filebody的解析移动到upload
+             request_.para_up_File(file);
+            //  if ( !file.init_fileds()) {
+            //   ret = responseResult::ServerError;
+            //   break;
+            // }
           }
           sta =actual_ProcessResult::Upload;
           return   ProcessResult::Upload;
@@ -555,7 +557,7 @@ Upload HttpConn ::handle_upload_file(){
      Upload res;
     while (true) {
      res=std::move( file.handle_upload_file(readBuff_));
-     if (res==Upload::UploadError||res==Upload::ReadyWrite) {
+     if (res!=Upload::NeedRead) {
              return  res;
      }
      int errno_=0;

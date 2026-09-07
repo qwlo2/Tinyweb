@@ -70,7 +70,7 @@ public:
     bool Auth_ar_and_sqlquary();
    
      //文件上传
-     bool upload_file(int file_fd);
+     //bool upload_file(int file_fd);
       Upload handle_upload_file();
       DownloadResult handle_down();
       DownloadResult handle_response_write();
