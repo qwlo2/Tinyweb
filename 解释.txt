@@ -203,6 +203,8 @@ writev，才让buffer+mmap文件
 因此buffer的write没有用，可以用来作为upload的write
 
 upload:
+    requst只解析行和头，body在upload中解析，支持多文件同时上传，每次设置状态机，现解析part-data，
+ 随后解析file-data，在根据--boundary后面的是否为--来判断是否有下一个文件，来重置状态
     初始化file——fd，evp-md-ctx*,每次通过writfd进行写，错误直接返回错误响应报文，写完后
 通过evp-md-ctx*调用evp-digestupdata-ctx进行增量sha256，错误则evp-md-ctx-free释放资源，当文件上传完毕
 会通过fsnyc落盘，随后通过evp-digestfina-ctx获取增量hash的结果，创建/objext/ab/cd/hash-hex的目录

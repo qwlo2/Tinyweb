@@ -196,9 +196,11 @@ std::string& UploadFile::get_boundary(){
          }
          //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
          std::string line(readBuff_.Peek(),end_boundary.size()+2);
-         if (line==end_boundary+"/r/n") {
+         if (line==end_boundary+"\r\n") {
             //下一个文件
             has_part=true;
+         }else if (line!=end_boundary+"\r\n") {
+            return Upload::UploadError;
          }
           readBuff_.Retrieve(end_boundary.size()+2);
            return Upload::ReadyWrite;
