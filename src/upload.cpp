@@ -42,6 +42,7 @@ void UploadFile::file_part_init(){
    sta = {MultipartState::PartHeaders};
   file_id = 0;
   part_init=false;
+  has_part=false;
   ready_rece_data = false;
   writed_size = 0;
   ready_write_size = 0;
@@ -189,6 +190,17 @@ std::string& UploadFile::get_boundary(){
              return Upload::UploadError;
        }
        if (is_end) {
+         //不够
+         if (readBuff_.ReadableBytes()<end_boundary.size()+2) {
+            return Upload::NeedRead;
+         }
+         //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
+         std::string line(readBuff_.Peek(),end_boundary.size()+2);
+         if (line==end_boundary+"/r/n") {
+            //下一个文件
+            has_part=true;
+         }
+          readBuff_.Retrieve(end_boundary.size()+2);
            return Upload::ReadyWrite;
        }
           //文件没有上传完成
@@ -237,6 +249,7 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
            // 上传完毕
            if (ret == Upload::ReadyWrite) {
               sta=MultipartState::Finished;
+              continue;
            }
            return  ret;
          }
@@ -259,22 +272,11 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
           if (!rename_file(fina_path)) {
               return Upload::UploadError;
           }
-          //判断是否结束
-           const std::string end_boundary = "\r\n--" + boundary;
-           //不够
-         if (readBuff_.ReadableBytes()<end_boundary.size()+2) {
-            return Upload::NeedRead;
-         }
-         //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
-         std::string line(readBuff_.Peek(),end_boundary.size()+2);
-         if (line!=end_boundary+"--") {
-            //下一个文件
-            file_part_init();
-            sta=MultipartState::PartHeaders;
-           // return  Upload::NeedRead;
-            continue;
-         }
-          readBuff_.Retrieve(end_boundary.size()+2);
+          if (has_part) {
+             file_part_init();
+             sta=MultipartState::PartHeaders;
+             continue;
+          }
           return Upload::ReadyWrite;
          }
 

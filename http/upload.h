@@ -37,6 +37,7 @@ class UploadFile{
         int file_fd{-1};
         bool ready_rece_data{false};
         bool part_init{false};
+        bool has_part{false};
         std::unordered_map<std::string, std::string> fileds;
          std::list<std::string> file_filed;//字节流不一定每次都一定是kv成对出现
         MultipartState sta={MultipartState::PartHeaders};
