@@ -35,11 +35,13 @@ void UploadFile::parase_filed(){
 }
 void UploadFile::init(){
   user_id = 0;
+  boundary = {};
   file_part_init();
 }
 void UploadFile::file_part_init(){
-  MultipartState sta = {MultipartState::PartHeaders};
+   sta = {MultipartState::PartHeaders};
   file_id = 0;
+  part_init=false;
   ready_rece_data = false;
   writed_size = 0;
   ready_write_size = 0;
@@ -58,7 +60,7 @@ void UploadFile::file_part_init(){
     ::unlink(temp_path.c_str());
   }
   temp_path.clear();
-  boundary = {};
+  
 }
 UploadFile::~UploadFile(){
   if (file_fd>0) {
@@ -114,6 +116,7 @@ std::string& UploadFile::get_boundary(){
        }
        //区分普通的Content-Disposition和最后带文件名的部分
        auto pos_=line.find_last_of(";");
+       ready_rece_data=true;
        if (pos_==std::string::npos) {
         //普通的(只有一个k=v)
            auto tmp=std::move(Trim_(line.substr(pos+1)));
@@ -142,7 +145,7 @@ std::string& UploadFile::get_boundary(){
       
 
      const std::string end_boundary =
-        "\r\n--" + boundary + "--";
+        "\r\n--" + boundary;
 
     const size_t readable = readBuff_.ReadableBytes();
 
@@ -186,19 +189,6 @@ std::string& UploadFile::get_boundary(){
              return Upload::UploadError;
        }
        if (is_end) {
-         //不够
-         if (readBuff_.ReadableBytes()<end_boundary.size()+2) {
-            return Upload::NeedRead;
-         }
-         //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
-         std::string line(readBuff_.Peek(),end_boundary.size()+2);
-         if (line!=end_boundary+"--") {
-            //下一个文件
-            file_part_init();
-            sta=MultipartState::PartHeaders;
-            return  Upload::NeedRead;
-         }
-          readBuff_.Retrieve(end_boundary.size()+2);
            return Upload::ReadyWrite;
        }
           //文件没有上传完成
@@ -233,9 +223,12 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
            sta=MultipartState::Finished;
          }
          if (sta==MultipartState::PartBody) {
-           parase_filed();
-           if (!!init_fileds()) {
-             return Upload::UploadError;
+           if (!part_init) {
+              parase_filed();
+              if (!init_fileds()) {
+                  return Upload::UploadError;
+              }
+              part_init=true;
            }
 
            auto ret = std::move(upload_file(file_fd, readBuff_));
@@ -266,6 +259,23 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
           if (!rename_file(fina_path)) {
               return Upload::UploadError;
           }
+          //判断是否结束
+           const std::string end_boundary = "\r\n--" + boundary;
+           //不够
+         if (readBuff_.ReadableBytes()<end_boundary.size()+2) {
+            return Upload::NeedRead;
+         }
+         //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
+         std::string line(readBuff_.Peek(),end_boundary.size()+2);
+         if (line!=end_boundary+"--") {
+            //下一个文件
+            file_part_init();
+            sta=MultipartState::PartHeaders;
+           // return  Upload::NeedRead;
+            continue;
+         }
+          readBuff_.Retrieve(end_boundary.size()+2);
+          return Upload::ReadyWrite;
          }
 
        }
