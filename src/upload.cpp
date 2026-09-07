@@ -147,7 +147,7 @@ std::string& UploadFile::get_boundary(){
 
      const std::string end_boundary =
         "\r\n--" + boundary;
-
+   while (true) {
     const size_t readable = readBuff_.ReadableBytes();
 
     if (readable == 0) {
@@ -196,20 +196,34 @@ std::string& UploadFile::get_boundary(){
          }
          //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
          std::string line(readBuff_.Peek(),end_boundary.size()+4);
+         
          if (line.starts_with(end_boundary+"\r\n")) {
             //下一个文件
             has_part=true;
          }else if (!line.starts_with(end_boundary+"--")) {
             //此时不一定是错误，可能是文件数据
-            return Upload::NeedRead;
+             datas=readBuff_.Peek();
+            safe_size = end_boundary.size() + 1;
+            ret = readBuff_.WriteFd(file_fd, safe_size);
+            writed_size += ret;
+            ready_write_size += ret;
+            readBuff_.Retrieve(ret);
+            if (ret != safe_size) {
+              return Upload::UploadError;
+            }
+            // 进行增量hash
+            if (!chunkhash(datas, safe_size)) {
+              return Upload::UploadError;
+            }
+            continue;
          }
-         //--boundary--后面还有\r\n因此要一次性读取4个，但这里只需+2
           readBuff_.Retrieve(end_boundary.size()+2);
+         //--boundary--后面还有\r\n因此要一次性读取4个，但这里只需+2
            return Upload::ReadyWrite;
        }
           //文件没有上传完成
           return  Upload::NeedRead;
-       
+   }
  }
  //页缓存是内核维护的、可回写和可回收的中间缓冲。当磁盘跟不上时，
  // 内核会让 write() 变慢，从而把压力逐层传回网络端。因此即便 write() 后数据暂时还在内存中，整个上传依然是流式的。
