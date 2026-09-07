@@ -191,17 +191,19 @@ std::string& UploadFile::get_boundary(){
        }
        if (is_end) {
          //不够
-         if (readBuff_.ReadableBytes()<end_boundary.size()+2) {
+         if (readBuff_.ReadableBytes()<end_boundary.size()+4) {
             return Upload::NeedRead;
          }
          //\r\n--boundary-- \r\n或者\r\n--boundary/r/n
-         std::string line(readBuff_.Peek(),end_boundary.size()+2);
-         if (line==end_boundary+"\r\n") {
+         std::string line(readBuff_.Peek(),end_boundary.size()+4);
+         if (line.starts_with(end_boundary+"\r\n")) {
             //下一个文件
             has_part=true;
-         }else if (line!=end_boundary+"\r\n") {
-            return Upload::UploadError;
+         }else if (!line.starts_with(end_boundary+"--")) {
+            //此时不一定是错误，可能是文件数据
+            return Upload::NeedRead;
          }
+         //--boundary--后面还有\r\n因此要一次性读取4个，但这里只需+2
           readBuff_.Retrieve(end_boundary.size()+2);
            return Upload::ReadyWrite;
        }
@@ -279,6 +281,8 @@ Upload UploadFile::handle_upload_file(Buffer& readBuff_){
              sta=MultipartState::PartHeaders;
              continue;
           }
+          //结束的\r\n
+          readBuff_.Retrieve(2);
           return Upload::ReadyWrite;
          }
 
